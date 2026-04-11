@@ -68,6 +68,7 @@ def load_dataset(
 
     training_transform, validation_transform, test_transform = get_transform(apply_augmentation, config)
 
+    as_rgb = False
     training_set = DataClass(split='train', transform=training_transform, download=True, as_rgb=as_rgb, size=size)
     validation_set = DataClass(split='val', transform=validation_transform, download=True, as_rgb=as_rgb, size=size)
     test_set = DataClass(split='test', transform=test_transform, download=True, as_rgb=as_rgb, size=size)
