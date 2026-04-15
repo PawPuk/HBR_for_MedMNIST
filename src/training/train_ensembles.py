@@ -14,7 +14,7 @@ from tqdm import tqdm
 from src.config.config import DEVICE, get_config
 from src.hardness.estimators import estimate_instance_hardness
 from src.models.neural_networks import ResNet18
-from src.utils.evaluation import evaluate_model
+from src.utils.evaluation import evaluate_model_dataset_level
 from src.utils.io import save_results
 from src.utils.reproducibility import compute_current_seed, set_reproducibility
 from src.utils.structures import get_latest_model_index
@@ -91,7 +91,7 @@ class ModelTrainer:
         else:
             criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=self.config['lr'])
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.config['lr_decay_milestones'],
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.config['milestones'],
                                                    gamma=self.config['gamma'])
 
         if self.estimate_hardness:
@@ -123,7 +123,7 @@ class ModelTrainer:
                 correct_train += predicted.eq(labels).sum().item()
 
                 probs = torch.softmax(outputs, dim=1)
-                all_probs.append(probs.cpu())
+                all_probs.append(probs.detach().cpu())
                 all_labels.append(labels.cpu())
 
                 if self.estimate_hardness:
@@ -131,20 +131,28 @@ class ModelTrainer:
                                                remembering, dataset_model_id)
             scheduler.step()
 
+            all_labels = torch.cat(all_labels).numpy()
+            all_probs = torch.cat(all_probs).numpy()
+
             # Report progress (accuracy & loss on training & test sets)
             if self.test_loader is not None:
-                avg_val_loss, val_accuracy, val_auc_macro, val_auc_weighted = evaluate_model(
+                avg_val_loss, val_accuracy, val_auc_macro, val_auc_weighted = evaluate_model_dataset_level(
                     model, criterion, self.validation_loader
                 )
                 if val_auc_weighted > best_val_auc:
                     best_val_auc = val_auc_weighted
                     best_model_state = model.state_dict().copy()
-                    best_model = model.copy()
 
                 avg_training_loss = running_loss / total_train
                 training_accuracy = 100 * correct_train / total_train
-                training_auc_macro = roc_auc_score(all_labels, all_probs, multi_class='ovr')
-                training_auc_weighted = roc_auc_score(all_labels, all_probs, multi_class='ovr', average='weighted')
+
+                num_classes = all_probs.shape[1]
+                if num_classes == 2:
+                    training_auc_macro = roc_auc_score(all_labels, all_probs[:, 1])
+                    training_auc_weighted = training_auc_macro
+                else:
+                    training_auc_macro = roc_auc_score(all_labels, all_probs, multi_class='ovr')
+                    training_auc_weighted = roc_auc_score(all_labels, all_probs, multi_class='ovr', average='weighted')
                 print(f'Model {current_model_index}, Epoch [{epoch + 1}/{self.config["num_epochs"]}] ')
                 self.print_performance("Training", avg_training_loss, training_accuracy, training_auc_macro,
                                        training_auc_weighted)
@@ -152,20 +160,15 @@ class ModelTrainer:
 
         best_model = ResNet18(in_channels=self.config['n_channels'], num_classes=self.config['num_classes']).to(DEVICE)
         best_model.load_state_dict(best_model_state)
-        avg_training_loss, training_accuracy, training_auc_macro, training_auc_weighted = evaluate_model(
-            best_model, criterion, self.training_loaders
-        )
-        avg_val_loss, val_accuracy, val_auc_macro, val_auc_weighted = evaluate_model(
+        avg_val_loss, val_accuracy, val_auc_macro, val_auc_weighted = evaluate_model_dataset_level(
             best_model, criterion, self.validation_loader
         )
-        avg_test_loss, test_accuracy, test_auc_macro, test_auc_weighted = evaluate_model(
+        avg_test_loss, test_accuracy, test_auc_macro, test_auc_weighted = evaluate_model_dataset_level(
             best_model, criterion, self.test_loader
         )
 
         print('-'*20)
         print(f'Best model performance:')
-        self.print_performance("Training", avg_training_loss, training_accuracy, training_auc_macro,
-                               training_auc_weighted)
         self.print_performance("Validation", avg_val_loss, val_accuracy, val_auc_macro, val_auc_weighted)
         self.print_performance("Test", avg_test_loss, test_accuracy, test_auc_macro, test_auc_weighted)
         print('-'*20)

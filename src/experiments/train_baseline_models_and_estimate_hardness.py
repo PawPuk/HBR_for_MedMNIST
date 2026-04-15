@@ -21,7 +21,7 @@ def main(dataset_name: str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train an ensemble of models on MedMNIST datasets.')
-    parser.add_argument('--dataset_name', type=str, required=True,
+    parser.add_argument('--dataset_name', type=str, required=False, default='bloodmnist',
                         choices=['bloodmnist', 'pneumoniamnist'], help='Dataset name: bloodmnist or pneumoniamnist')
 
     args = parser.parse_args()

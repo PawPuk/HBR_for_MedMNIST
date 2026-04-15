@@ -29,6 +29,7 @@ class IndexedDataset(torch.utils.data.Dataset):
         data, label = self.dataset[idx]
         if self.transform:
             data = self.transform(data)
+        label = label.squeeze(0)
         return data, label, idx
 
     def __iter__(self):

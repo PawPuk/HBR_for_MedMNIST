@@ -45,7 +45,7 @@ def get_dataloader(
         shuffle: bool = False
 ):
     """Create a DataLoader with deterministic worker initialization."""
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=2, worker_init_fn=worker_init_fn)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=1, worker_init_fn=worker_init_fn)
 
 
 def load_dataset(
@@ -63,7 +63,7 @@ def load_dataset(
     test sets.
     """
     config = get_config(dataset_name)
-    size = config[dataset_name]['size']
+    size = config['size']
     DataClass = getattr(medmnist, medmnist.INFO[dataset_name]['python_class'])
 
     training_transform, validation_transform, test_transform = get_transform(apply_augmentation, config)
