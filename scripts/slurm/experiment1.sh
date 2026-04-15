@@ -3,7 +3,7 @@
 set -e
 
 echo "========================================"
-echo "Running Case Study 1 Experiments"
+echo "Training baseline models"
 echo "========================================"
 
 echo "Training models on balanced dataset (the baseline)..."
