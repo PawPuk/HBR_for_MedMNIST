@@ -22,7 +22,7 @@ do
     log_file="Output/output_train_baseline_models_${dataset_name}.out"
 
     sbatch --job-name="$job_name" --output="$log_file" \
-      scripts/slurm/train_baselin_models_and_estimate_hardness.sh "$dataset_name"
+      scripts/slurm/train_baseline_models_and_estimate_hardness.sh "$dataset_name"
 done
 
 echo "========================================"

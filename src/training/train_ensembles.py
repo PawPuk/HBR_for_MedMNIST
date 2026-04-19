@@ -167,11 +167,10 @@ class ModelTrainer:
             best_model, criterion, self.test_loader
         )
 
-        print('-'*20)
-        print(f'Best model performance:')
+        print('\n', '-'*20, 'Best model performance:')
         self.print_performance("Validation", avg_val_loss, val_accuracy, val_auc_macro, val_auc_weighted)
         self.print_performance("Test", avg_test_loss, test_accuracy, test_auc_macro, test_auc_weighted)
-        print('-'*20)
+        print('-'*20, '\n')
 
         # Save model after full training
         final_save_path = os.path.join(self.save_dir, f'dataset_{current_dataset_index}'

@@ -89,6 +89,12 @@ _dataset_specific_config = {
         'std': (0.5,),
         'n_channels': medmnist.INFO['bloodmnist']['n_channels']
     },
+    'dermamnist': {
+        'num_classes': 7,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['bloodmnist']['n_channels']
+    },
     'pneumoniamnist': {
         'num_classes': 2,
         'mean': (0.5,),

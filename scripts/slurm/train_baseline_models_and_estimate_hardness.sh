@@ -13,5 +13,5 @@ source activate pytorch
 
 dataset_name=$1
 
-python3 -m src.experiments.train_baseline_models --dataset_name "$dataset_name"
+python3 -m src.experiments.train_baseline_models_and_estimate_hardness --dataset_name "$dataset_name"
 

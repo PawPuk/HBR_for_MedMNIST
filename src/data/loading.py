@@ -24,7 +24,10 @@ def get_transform(
             transforms.Normalize(config['mean'], config['std']),
         ])
     else:
-        train_transform = transforms.ToTensor()
+        train_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(config['mean'], config['std'])
+        ])
 
     test_transform = transforms.Compose([
         transforms.ToTensor(),

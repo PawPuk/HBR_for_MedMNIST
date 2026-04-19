@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
@@ -54,7 +54,7 @@ def evaluate_model_class_level(
         model: ResNet18,
         data_loader: DataLoader,
         num_classes: int
-) -> Dict[str, Dict[int, float]]:
+) -> Tuple[List[float], List[float]]:
     """
     Evaluate model performance at the class level.
 
@@ -66,7 +66,7 @@ def evaluate_model_class_level(
                      'auc': {class_idx: auc_score, ...}}
     """
     model.eval()
-    all_labels, all_probs, per_class_accuracy, per_class_auc = [], [], {}, {}
+    all_labels, all_probs, per_class_accuracy = [], [], []
 
     with torch.no_grad():
         for inputs, labels, _ in data_loader:
@@ -82,9 +82,14 @@ def evaluate_model_class_level(
     predicted_classes = np.argmax(all_probs, axis=1)
     for class_idx in range(num_classes):
         class_mask = (all_labels == class_idx)
-        per_class_accuracy[class_idx] = 100 * np.mean(predicted_classes[class_mask] == class_idx)
+        per_class_accuracy.append(100 * np.mean(predicted_classes[class_mask] == class_idx))
 
     # Calculate per-class AUC
-    per_class_auc = roc_auc_score(all_labels, all_probs, multi_class='ovr', average=None)
+    if num_classes == 2:
+        pos_prob = all_probs[:, 1]
+        auc = roc_auc_score(all_labels, pos_prob)
+        per_class_auc = [auc, auc]
+    else:
+        per_class_auc = roc_auc_score(all_labels, all_probs, multi_class='ovr', average=None)
 
     return per_class_accuracy, per_class_auc

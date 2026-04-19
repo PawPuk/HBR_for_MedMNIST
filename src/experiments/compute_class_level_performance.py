@@ -19,20 +19,31 @@ def main(dataset_name: str):
     training_loader, _, _, _ = load_dataset(dataset_name)
 
     config = get_config(dataset_name)
-    model_paths = load_baseline_models(dataset_name, config['num_epochs'])
+    model_paths = load_baseline_models(dataset_name)
+
+    print(f"Number of models found: {len(model_paths)}")  # Debug
+
     class_level_performances = [{} for _ in range(len(model_paths))]
     for model_idx, model_path in enumerate(model_paths):
+        print(f"Processing model {model_idx}: {model_path}")  # Debug
+
         model_state = torch.load(model_path)
         model = ResNet18(in_channels=config['n_channels'], num_classes=config['num_classes']).to(DEVICE)
         model.load_state_dict(model_state)
         model.eval()
         per_class_accuracy, per_class_auc = evaluate_model_class_level(model, training_loader, config['num_classes'])
+
+        print(f"Model {model_idx} - Accuracy list length: {len(per_class_accuracy)}")  # Debug
+        print(f"Model {model_idx} - AUC list length: {len(per_class_auc)}")  # Debug
+
         class_level_performances[model_idx]["accuracy"] = per_class_accuracy
         class_level_performances[model_idx]["auc"] = per_class_auc
 
-    path = os.path.join(ROOT, 'Results', f'class_level_performances_{dataset_name}.pkl')
+    path = os.path.join(ROOT, 'Results', dataset_name, f'class_level_performances.pkl')
     with open(path, "wb") as file:
         pickle.dump(class_level_performances, file)
+
+    print(f"Saved to {path}")  # Debug
 
 
 if __name__ == '__main__':
