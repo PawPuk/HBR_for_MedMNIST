@@ -45,6 +45,7 @@ def compute_all_hardness_data(dataset_name: str):
     all_hardness_by_class = {}          # {estimator: {num_models: hardness_by_class}}
     all_hard_samples = {}               # {estimator: {num_models: {threshold: hard_indices}}}
     all_hard_samples_by_class = {}      # {estimator: {num_models: {threshold: per_class_hard_indices}}}
+    all_final_hardness = {}             # {estimator: {num_models: {final_hardness}}}
 
     estimators = ['AUM', 'DataIQ', 'Forgetting']
 
@@ -55,6 +56,7 @@ def compute_all_hardness_data(dataset_name: str):
         all_hardness_by_class[est] = {}
         all_hard_samples[est] = {}
         all_hard_samples_by_class[est] = {}
+        all_final_hardness[est] = {}
 
         for num_models in tqdm(model_counts, desc=f'Computing {est} over model counts'):
             # Average over `num_models` models
@@ -67,12 +69,13 @@ def compute_all_hardness_data(dataset_name: str):
 
             for thr in thresholds:
                 # For AUM high values correspond to easy samples (unlike for Forgetting or DataIQ)
+                total_n_samples = len(final_hardness)
+                target_n_hard_samples = int(total_n_samples * thr / 100)
                 if est == 'AUM':
-                    percentile_val = np.percentile(final_hardness, thr)
-                    hard_indices = [i for i, h in enumerate(final_hardness) if h <= percentile_val]
+                    sorted_indices = sorted(range(total_n_samples), key=lambda i: final_hardness[i])
                 else:
-                    percentile_val = np.percentile(final_hardness, 100 - thr)
-                    hard_indices = [i for i, h in enumerate(final_hardness) if h >= percentile_val]
+                    sorted_indices = sorted(range(total_n_samples), key=lambda i: final_hardness[i], reverse=True)
+                hard_indices = sorted_indices[:target_n_hard_samples]
                 hard_samples_for_threshold[thr] = hard_indices
 
                 # Group by class
@@ -86,6 +89,7 @@ def compute_all_hardness_data(dataset_name: str):
 
             all_hard_samples[est][num_models] = hard_samples_for_threshold
             all_hard_samples_by_class[est][num_models] = hard_samples_by_class_for_threshold
+            all_final_hardness[est][num_models] = final_hardness
 
     # Save everything
     data = {
@@ -96,6 +100,7 @@ def compute_all_hardness_data(dataset_name: str):
         'all_hardness_by_class': all_hardness_by_class,
         'all_hard_samples': all_hard_samples,
         'all_hard_samples_by_class': all_hard_samples_by_class,
+        'all_final_hardness': all_final_hardness,
     }
 
     save_path = os.path.join(ROOT, f'Results/{dataset_name}/hardness_data.pkl')
@@ -107,6 +112,8 @@ def compute_all_hardness_data(dataset_name: str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_name', type=str, required=True,
-                        choices=['dermamnist', 'bloodmnist', 'pneumoniamnist'])
+                        choices=['bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'chestmnist',
+                                 'octmnist', 'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist',
+                                 'breastmnist', 'retinamnist'],)
     args = parser.parse_args()
     compute_all_hardness_data(args.dataset_name)
