@@ -23,7 +23,7 @@ def load_previous_hardness_estimates(path: str) -> Union[Dict, Dict[Tuple[int, i
 
 
 def save_results(hardness_estimates: Dict[Tuple[int, int], Dict[str, List[float]]], dataset_model_id: Tuple[int, int],
-                 dataset_name: str):
+                 dataset_name: str, split: str):
     """
     The purpose of this function is to enable easier generation of results. If we already spent a lot of
     resources on training an ensemble, we don't want it to go to waste just because the ensemble is not large
@@ -31,7 +31,7 @@ def save_results(hardness_estimates: Dict[Tuple[int, int], Dict[str, List[float]
     """
     hardness_save_dir = os.path.join(ROOT, "Results", dataset_name)
     os.makedirs(hardness_save_dir, exist_ok=True)
-    path = os.path.join(hardness_save_dir, 'hardness_estimates.pkl')
+    path = os.path.join(hardness_save_dir, f'{split}_hardness_estimates.pkl')
     old_hardness_estimates = load_previous_hardness_estimates(path)
     old_hardness_estimates[dataset_model_id] = hardness_estimates[dataset_model_id]
 
