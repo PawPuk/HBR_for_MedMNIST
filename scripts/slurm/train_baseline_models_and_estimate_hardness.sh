@@ -12,6 +12,7 @@ module load CUDA/10.2.89-GCC-8.3.0
 source activate pytorch
 
 dataset_name=$1
+split_name=$2
 
-python3 -m src.experiments.train_baseline_models_and_estimate_hardness --dataset_name "$dataset_name"
+python3 -m src.experiments.train_baseline_models_and_estimate_hardness --dataset_name "$dataset_name" "$split_name"
 

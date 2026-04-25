@@ -83,23 +83,78 @@ _base_config = {
 }
 
 _dataset_specific_config = {
-    'bloodmnist': {
-        'num_classes': 8,
+    # 2D MedMNIST datasets
+    'pathmnist': {
+        'num_classes': 9,
         'mean': (0.5,),
         'std': (0.5,),
-        'n_channels': medmnist.INFO['bloodmnist']['n_channels']
+        'n_channels': medmnist.INFO['pathmnist']['n_channels']
+    },
+    'chestmnist': {
+        'num_classes': 2,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['chestmnist']['n_channels']
     },
     'dermamnist': {
         'num_classes': 7,
         'mean': (0.5,),
         'std': (0.5,),
-        'n_channels': medmnist.INFO['bloodmnist']['n_channels']
+        'n_channels': medmnist.INFO['dermamnist']['n_channels']
+    },
+    'octmnist': {
+        'num_classes': 4,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['octmnist']['n_channels']
     },
     'pneumoniamnist': {
         'num_classes': 2,
         'mean': (0.5,),
         'std': (0.5,),
         'n_channels': medmnist.INFO['pneumoniamnist']['n_channels']
+    },
+    'retinamnist': {
+        'num_classes': 5,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['retinamnist']['n_channels']
+    },
+    'breastmnist': {
+        'num_classes': 2,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['breastmnist']['n_channels']
+    },
+    'bloodmnist': {
+        'num_classes': 8,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['bloodmnist']['n_channels']
+    },
+    'tissuemnist': {
+        'num_classes': 8,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['tissuemnist']['n_channels']
+    },
+    'organamnist': {
+        'num_classes': 11,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['organamnist']['n_channels']
+    },
+    'organcmnist': {
+        'num_classes': 11,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['organcmnist']['n_channels']
+    },
+    'organsmnist': {
+        'num_classes': 11,
+        'mean': (0.5,),
+        'std': (0.5,),
+        'n_channels': medmnist.INFO['organsmnist']['n_channels']
     }
 }
 
