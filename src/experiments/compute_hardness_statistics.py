@@ -28,14 +28,13 @@ def group_hardness_by_class(loader: DataLoader, hardness_estimates: list, num_cl
     return hardness_by_class
 
 
-def compute_all_hardness_data(dataset_name: str):
-    """Compute all hardness data for all ensemble sizes and save to disk."""
-    hardness_estimates = load_results(f'{ROOT}/Results/{dataset_name}/hardness_estimates.pkl')
+def compute_hardness_data_for_split(dataset_name: str, split: str, loader: DataLoader,
+                                    hardness_estimates: dict) -> dict:
+    """Compute all hardness data for a single split (train/val/test)."""
     config = get_config(dataset_name)
     num_classes = config['num_classes']
-    training_loader, _, _, _ = load_dataset(dataset_name)
 
-    class_cardinalities = get_class_cardinalities(training_loader, num_classes)
+    class_cardinalities = get_class_cardinalities(loader, num_classes)
 
     thresholds = np.arange(5, 35, 10)
     n_models_total = len(hardness_estimates)
@@ -58,20 +57,20 @@ def compute_all_hardness_data(dataset_name: str):
         all_hard_samples_by_class[est] = {}
         all_final_hardness[est] = {}
 
-        for num_models in tqdm(model_counts, desc=f'Computing {est} over model counts'):
+        for num_models in tqdm(model_counts, desc=f'{split} - {est} over model counts'):
             # Average over `num_models` models
             final_hardness = list(np.mean(np.array(hardness_over_models[:num_models]), axis=0))
-            hardness_by_class = group_hardness_by_class(training_loader, final_hardness, num_classes)
+            hardness_by_class = group_hardness_by_class(loader, final_hardness, num_classes)
             all_hardness_by_class[est][num_models] = hardness_by_class
 
             hard_samples_for_threshold = {}
             hard_samples_by_class_for_threshold = {}
 
             for thr in thresholds:
-                # For AUM high values correspond to easy samples (unlike for Forgetting or DataIQ)
                 total_n_samples = len(final_hardness)
                 target_n_hard_samples = int(total_n_samples * thr / 100)
                 if est == 'AUM':
+                    # AUM: high values = easy, low values = hard
                     sorted_indices = sorted(range(total_n_samples), key=lambda i: final_hardness[i])
                 else:
                     sorted_indices = sorted(range(total_n_samples), key=lambda i: final_hardness[i], reverse=True)
@@ -81,7 +80,7 @@ def compute_all_hardness_data(dataset_name: str):
                 # Group by class
                 per_class_hard_indices = [[] for _ in range(num_classes)]
                 hard_idx_set = set(hard_indices)  # For faster lookup
-                for _, labels, indices in training_loader:
+                for _, labels, indices in loader:
                     for label, idx in zip(labels, indices):
                         if idx.item() in hard_idx_set:
                             per_class_hard_indices[label].append(idx.item())
@@ -91,7 +90,7 @@ def compute_all_hardness_data(dataset_name: str):
             all_hard_samples_by_class[est][num_models] = hard_samples_by_class_for_threshold
             all_final_hardness[est][num_models] = final_hardness
 
-    # Save everything
+    # Assemble data dictionary for this split
     data = {
         'class_cardinalities': class_cardinalities,
         'thresholds': thresholds,
@@ -102,11 +101,43 @@ def compute_all_hardness_data(dataset_name: str):
         'all_hard_samples_by_class': all_hard_samples_by_class,
         'all_final_hardness': all_final_hardness,
     }
+    return data
 
-    save_path = os.path.join(ROOT, f'Results/{dataset_name}/hardness_data.pkl')
-    with open(save_path, 'wb') as f:
-        pickle.dump(data, f)
-    print(f"Saved hardness data to {save_path}")
+
+def compute_all_hardness_data(dataset_name: str):
+    """Compute hardness statistics for train, validation and test splits separately,
+    skipping any split for which the output file already exists."""
+    # Load the dataset once to get the three loaders
+    train_loader, _, val_loader, test_loader = load_dataset(dataset_name)
+
+    splits = [
+        ('training', train_loader, 'training_hardness_data.pkl'),
+        ('validation', val_loader, 'validation_hardness_data.pkl'),
+        ('test', test_loader, 'test_hardness_data.pkl')
+    ]
+
+    for split_name, loader, out_filename in splits:
+        save_path = os.path.join(ROOT, f'Results/{dataset_name}/{out_filename}')
+
+        # Skip if output already exists
+        if os.path.exists(save_path):
+            print(f"Output file {save_path} already exists. Skipping {split_name} split.")
+            continue
+
+        # Load the corresponding hardness estimates file
+        hardness_path = os.path.join(ROOT, f'Results/{dataset_name}/{split_name}_hardness_estimates.pkl')
+        if not os.path.exists(hardness_path):
+            print(f"Warning: {hardness_path} not found, skipping {split_name} split.")
+            continue
+
+        hardness_estimates = load_results(hardness_path)
+
+        print(f"\nProcessing {split_name} split...")
+        data = compute_hardness_data_for_split(dataset_name, split_name, loader, hardness_estimates)
+
+        with open(save_path, 'wb') as f:
+            pickle.dump(data, f)
+        print(f"Saved hardness data to {save_path}")
 
 
 if __name__ == '__main__':
@@ -114,6 +145,6 @@ if __name__ == '__main__':
     parser.add_argument('--dataset_name', type=str, required=True,
                         choices=['bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'chestmnist',
                                  'octmnist', 'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist',
-                                 'breastmnist', 'retinamnist'],)
+                                 'breastmnist', 'retinamnist'])
     args = parser.parse_args()
     compute_all_hardness_data(args.dataset_name)
