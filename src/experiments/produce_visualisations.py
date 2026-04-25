@@ -16,6 +16,7 @@ def main(dataset_name: str):
         ('validation', 'validation_hardness_data.pkl'),
         ('test', 'test_hardness_data.pkl')
     ]
+    splits_for_combined = {}
 
     for split_name, data_filename in splits:
         data_path = os.path.join(ROOT, f'Results/{dataset_name}/{data_filename}')
@@ -45,6 +46,7 @@ def main(dataset_name: str):
         hard_samples_max = {est: all_hard_samples[est][n_models_max] for est in estimators}
         hard_samples_by_class_max = {est: all_hard_samples_by_class[est][n_models_max] for est in estimators}
         final_hardness = {est: all_final_hardness[est][n_models_max] for est in estimators}
+        splits_for_combined[split_name] = (class_cardinalities, hardness_by_class_max)
 
         # --- Plots using largest ensemble statistics ---
         for est in estimators:
@@ -61,6 +63,8 @@ def main(dataset_name: str):
             plot_consecutive_stability(all_hard_samples, thresholds, model_counts, est, dataset_name, figure_save_path)
 
         print(f"Finished visualisations for {split_name} split (saved to {figure_save_path})")
+    figure_save_path = os.path.join(ROOT, f'Figures/{dataset_name}/')
+    plot_class_cardinalities_and_hardness_with_splits(splits_for_combined, dataset_name, figure_save_path)
 
 
 if __name__ == '__main__':

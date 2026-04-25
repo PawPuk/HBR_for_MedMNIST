@@ -154,6 +154,102 @@ def plot_class_hard_samples_simple(class_cardinalities: List[int],
     print(f"Saved plot to {save_file}")
 
 
+def plot_class_cardinalities_and_hardness_with_splits(
+    splits_data: dict,
+    dataset_name: str,
+    save_path: str
+):
+    """
+    Creates a figure with three subplots (one per hardness estimator).
+    Each subplot shows:
+      - Bars: training class cardinalities (from the 'training' split in splits_data)
+      - Lines: per‑class mean hardness for each split (train, val, test)
+
+    Args:
+        splits_data: dict mapping split name (e.g., 'training', 'validation', 'test') to a tuple
+                     (class_cardinalities, hardness_by_class) where
+                     class_cardinalities is List[int] (per‑class sample count) and
+                     hardness_by_class is Dict[str, List[List[float]]] mapping estimator
+                     name to a list of per‑class hardness value lists.
+        dataset_name: used for title and filename.
+        save_path: directory to save the figure.
+    """
+    # Extract splits names and their data. We use class cardinalities from training split.
+    split_names = list(splits_data.keys())
+    print(split_names)
+    if 'training' not in split_names:
+        raise ValueError("splits_data must contain a 'training' split for cardinality bars")
+
+    estimators = splits_data['validation'][1].keys()
+    num_estimators = len(estimators)
+    num_classes = len(splits_data['training'][0])
+    train_cardinalities = splits_data['training'][0]
+
+    # For each estimator and split, compute per‑class mean hardness
+    # Structure: means[estimator][split] = list of means per class
+    means = {est: {} for est in estimators}
+
+    for split_name, (_, hardness_by_class) in splits_data.items():
+        for est in estimators:
+            hardness_lists = hardness_by_class[est]
+            est_means = []
+            for c in range(num_classes):
+                vals = hardness_lists[c]
+                est_means.append(np.mean(vals) if vals else 0.0)
+            means[est][split_name] = est_means
+
+    # Create subplots: one row, three columns
+    fig, axes = plt.subplots(1, num_estimators, figsize=(5 * num_estimators, 5))
+
+    x = np.arange(num_classes)
+    width = 0.35
+    # Color cycle for splits
+    split_colors = plt.cm.tab10(np.linspace(0, 1, len(split_names)))
+    split_styles = {name: color for name, color in zip(split_names, split_colors)}
+
+    legend_handles, legend_labels = [], []
+
+    for idx, est in enumerate(estimators):
+        ax = axes[idx]
+        # Bar chart: training cardinalities
+        bars = ax.bar(x - width/2, train_cardinalities, width, color='skyblue', alpha=0.7, label='Training Cardinality')
+        if idx == 0:
+            legend_handles.append(bars)
+            legend_labels.append('Training Cardinality')
+
+        ax.set_xlabel('Class Label')
+        ax.set_ylabel('Number of Samples', color='blue')
+        ax.tick_params(axis='y', labelcolor='blue')
+
+        # Twin axis for hardness lines
+        ax2 = ax.twinx()
+        for split_name in split_names:
+            line, = ax2.plot(x, means[est][split_name], marker='o', linestyle='-',
+                             color=split_styles[split_name], linewidth=2, markersize=6,
+                             label=f'{split_name.capitalize()} Hardness')
+            if idx == 0:
+                legend_handles.append(line)
+                legend_labels.append(f'{split_name.capitalize()} Hardness')
+
+        ax2.set_ylabel('Mean Hardness Estimate', color='red')
+        ax2.tick_params(axis='y', labelcolor='red')
+
+        ax.set_title(f'{est}')
+        ax.set_xticks(x)
+        ax.set_xticklabels(range(num_classes))
+
+    # Single legend placed below the figure
+    fig.legend(legend_handles, legend_labels, loc='lower center', bbox_to_anchor=(0.5, -0.12),
+               ncol=len(split_names)+1, fontsize=10)
+
+    fig.suptitle(f'{dataset_name}: Training Class Cardinalities and Hardness per Split', fontsize=14)
+    plt.tight_layout(rect=[0, 0.12, 1, 0.95])  # Make room for the legend
+    save_file = os.path.join(save_path, 'class_cardinalities_hardness_all_splits.png')
+    plt.savefig(save_file, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"Saved split‑comparison figure to {save_file}")
+
+
 def plot_class_cardinalities_and_hardness(class_cardinalities: List[int],
                                           all_hardness_by_class: Dict[str, List[List[float]]],
                                           dataset_name: str,
@@ -175,34 +271,25 @@ def plot_class_cardinalities_and_hardness(class_cardinalities: List[int],
     classes = list(range(num_classes))
 
     # Prepare data: for each estimator, compute mean and std per class
-    means = {}
-    stds = {}
+    means, stds = {}, {}
     for est in estimators:
         hardness_lists = all_hardness_by_class[est]
-        est_means = []
-        est_stds = []
+        est_means, est_stds = [], []
         for c in range(num_classes):
             vals = hardness_lists[c]
-            if vals:
-                est_means.append(np.mean(vals))
-                est_stds.append(np.std(vals))
-            else:
-                est_means.append(0.0)
-                est_stds.append(0.0)
+            est_means.append(np.mean(vals) if vals else 0.0)
+            est_stds.append(np.std(vals) if vals else 0.0)
         means[est] = est_means
         stds[est] = est_stds
 
     # Create subplots: one row, three columns
     fig, axes = plt.subplots(1, num_estimators, figsize=(5 * num_estimators, 5))
-    if num_estimators == 1:
-        axes = [axes]
 
     x = np.arange(num_classes)
     width = 0.35
 
     # We'll collect handles and labels for a single legend
-    legend_handles = []
-    legend_labels = []
+    legend_handles, legend_labels = [], []
 
     for idx, est in enumerate(estimators):
         ax = axes[idx]
@@ -323,3 +410,8 @@ def plot_consecutive_stability(all_hard_samples, thresholds, model_counts, estim
     plt.savefig(save_file, dpi=150, bbox_inches='tight')
     plt.close(fig)
     print(f"Saved consecutive stability plot to {save_file}")
+
+
+# Added a new Figure to visualisations that compares the class-level hardness estimates across splits. We want
+# estimates to be comparable across splits. Whenever it is not the case an investigation as to why
+# that is should be performed.
