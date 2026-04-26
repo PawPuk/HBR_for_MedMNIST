@@ -2,14 +2,10 @@ import argparse
 import pickle
 
 from src.config.config import ROOT
-from src.visualisations.terminal import report_performance_metrics
 from src.visualisations.figures import *
 
 
 def main(dataset_name: str):
-    # Report performance metrics once (not split‑dependent)
-    report_performance_metrics(dataset_name)
-
     # Splits and corresponding file suffixes
     splits = [
         ('training', 'training_hardness_data.pkl'),

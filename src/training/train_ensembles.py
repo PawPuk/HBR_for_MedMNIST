@@ -1,6 +1,5 @@
 """Core module that allows for training ensembles of models as well as estimating hardness."""
 
-import os
 from typing import cast, Dict, Sized, Tuple, Union
 
 import numpy as np
@@ -64,9 +63,6 @@ class ModelTrainer:
             self.num_models_to_train_per_dataset = self.config['num_models_per_dataset']
             self.dataset_count = self.config['num_datasets']
 
-        self.save_dir = os.path.join(self.config['save_dir'], dataset_name)
-        os.makedirs(self.save_dir, exist_ok=True)
-
     def train_model(
             self,
             current_dataset_index: int,
@@ -116,7 +112,7 @@ class ModelTrainer:
     ):
         """Train an ensemble of models."""
 
-        latest_model_indices = get_latest_model_index(self.save_dir, self.config['num_epochs'], self.dataset_count)
+        latest_model_indices = get_latest_model_index(self.dataset_name, self.split, self.dataset_count)
 
         print(f"Starting training {self.dataset_count} ensembles of {self.num_models_to_train_per_dataset} models each "
               f"on the {self.split} split of {self.dataset_name}.")

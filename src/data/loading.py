@@ -55,7 +55,7 @@ def load_dataset(
         dataset_name: str,
         shuffle: bool = False,
         apply_augmentation: bool = False
-) -> Tuple[DataLoader[IndexedDataset], IndexedDataset, DataLoader[IndexedDataset], DataLoader[IndexedDataset]]:
+):
     """Load the dataset giving control over shuffling and augmentation.
 
     :param dataset_name: Name of the dataset to load (only accepts MedMNIST datasets).
@@ -84,4 +84,4 @@ def load_dataset(
     validation_loader = get_dataloader(validation_set, config['batch_size'])
     test_loader = get_dataloader(test_set, config['batch_size'])
 
-    return training_loader, training_set, validation_loader, test_loader
+    return training_loader, training_set, validation_loader, validation_set, test_loader, test_set

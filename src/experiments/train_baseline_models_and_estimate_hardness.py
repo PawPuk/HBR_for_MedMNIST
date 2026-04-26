@@ -9,10 +9,15 @@ from src.training.train_ensembles import ModelTrainer
 
 
 def main(dataset_name: str, split: str):
-    training_loader, training_set, validation_loader, test_loader = load_dataset(dataset_name, True, True)
-    training_set_size = len(training_set)
+    train_loader, train_set, val_loader, val_set, test_loader, test_set = load_dataset(dataset_name, True, True)
+    if split == 'training':
+        training_set_size = len(train_set)
+    elif split == 'validation':
+        training_set_size = len(val_set)
+    else:
+        training_set_size = len(test_set)
 
-    trainer = ModelTrainer(training_set_size, training_loader, validation_loader, test_loader, dataset_name, split,
+    trainer = ModelTrainer(training_set_size, train_loader, val_loader, test_loader, dataset_name, split,
                            for_baseline=True)
 
     trainer.train_ensemble()
