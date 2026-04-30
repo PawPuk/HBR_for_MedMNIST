@@ -110,65 +110,57 @@ def compute_all_hardness_data(dataset_names: List[str] = None):
     skipping any split for which the output file already exists."""
 
     # All available MedMNIST datasets
-    all_datasets = ['tissuemnist', 'octmnist']
+    all_datasets = [
+        'bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'octmnist', 'tissuemnist',
+        'organamnist', 'organcmnist', 'organsmnist', 'breastmnist', 'retinamnist'
+    ]
 
     # If no specific datasets provided, process all
     if dataset_names is None:
         dataset_names = all_datasets
 
-    # Filter to only valid datasets
-    valid_datasets = [d for d in dataset_names if d in all_datasets]
-    if len(valid_datasets) != len(dataset_names):
-        invalid = set(dataset_names) - set(all_datasets)
-        print(f"Warning: Skipping invalid datasets: {invalid}")
-
     print(f"\n{'=' * 60}")
-    print(f"Processing {len(valid_datasets)} datasets: {', '.join(valid_datasets)}")
+    print(f"Processing {len(dataset_names)} datasets: {', '.join(dataset_names)}")
     print(f"{'=' * 60}\n")
 
-    for dataset_idx, dataset_name in enumerate(valid_datasets, 1):
+    for dataset_idx, dataset_name in enumerate(dataset_names, 1):
         print(f"\n{'=' * 60}")
-        print(f"Dataset {dataset_idx}/{len(valid_datasets)}: {dataset_name}")
+        print(f"Dataset {dataset_idx}/{len(dataset_names)}: {dataset_name}")
         print(f"{'=' * 60}")
 
-        try:
-            # Load the dataset once to get the three loaders
-            train_loader, _, val_loader, _, test_loader, _ = load_dataset(dataset_name)
+        # Load the dataset once to get the three loaders
+        train_loader, _, val_loader, _, test_loader, _ = load_dataset(dataset_name)
 
-            splits = [
-                ('training', train_loader, 'training_hardness_data.pkl'),
-                ('validation', val_loader, 'validation_hardness_data.pkl'),
-                ('test', test_loader, 'test_hardness_data.pkl')
-            ]
+        splits = [
+            ('training', train_loader, 'training_hardness_data.pkl'),
+            ('validation', val_loader, 'validation_hardness_data.pkl'),
+            ('test', test_loader, 'test_hardness_data.pkl')
+        ]
 
-            for split_name, loader, out_filename in splits:
-                save_path = os.path.join(ROOT, f'Results/{dataset_name}/{out_filename}')
+        for split_name, loader, out_filename in splits:
+            save_path = os.path.join(ROOT, f'Results/{dataset_name}/{out_filename}')
 
-                # Skip if output already exists
-                if os.path.exists(save_path):
-                    print(f"✓ {split_name} split already processed (found {save_path})")
-                    continue
+            # Skip if output already exists
+            if os.path.exists(save_path):
+                print(f"✓ {split_name} split already processed (found {save_path})")
+                continue
 
-                # Load the corresponding hardness estimates file
-                hardness_path = os.path.join(ROOT, f'Results/{dataset_name}/{split_name}_hardness_estimates.pkl')
-                if not os.path.exists(hardness_path):
-                    print(f"⚠ Warning: {hardness_path} not found, skipping {split_name} split.")
-                    continue
+            # Load the corresponding hardness estimates file
+            hardness_path = os.path.join(ROOT, f'Results/{dataset_name}/{split_name}_hardness_estimates.pkl')
+            if not os.path.exists(hardness_path):
+                print(f"⚠ Warning: {hardness_path} not found, skipping {split_name} split.")
+                continue
 
-                hardness_estimates = load_results(hardness_path)
+            hardness_estimates = load_results(hardness_path)
 
-                print(f"\n🔄 Processing {split_name} split...")
-                data = compute_hardness_data_for_split(dataset_name, split_name, loader, hardness_estimates)
+            print(f"\n🔄 Processing {split_name} split...")
+            data = compute_hardness_data_for_split(dataset_name, split_name, loader, hardness_estimates)
 
-                with open(save_path, 'wb') as f:
-                    pickle.dump(data, f)
-                print(f"✓ Saved hardness data to {save_path}")
+            with open(save_path, 'wb') as f:
+                pickle.dump(data, f)
+            print(f"✓ Saved hardness data to {save_path}")
 
-            print(f"\n✓ Completed dataset: {dataset_name}")
-
-        except Exception as e:
-            print(f"\n✗ Error processing dataset {dataset_name}: {str(e)}")
-            print(f"  Continuing with next dataset...\n")
+        print(f"\n✓ Completed dataset: {dataset_name}")
 
     print(f"\n{'=' * 60}")
     print("Processing complete!")
@@ -177,7 +169,7 @@ def compute_all_hardness_data(dataset_names: List[str] = None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process hardness data for MedMNIST datasets')
-    parser.add_argument('--datasets', type=str, nargs='+', required=False,
+    parser.add_argument('--dataset_name', type=str, nargs='+', required=False,
                         help='List of dataset names to process. If not provided, processes all MedMNIST datasets.',
                         choices=['bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'chestmnist',
                                  'octmnist', 'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist',
@@ -185,4 +177,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # If datasets are provided, use them; otherwise process all
-    compute_all_hardness_data(args.datasets if args.datasets else None)
+    compute_all_hardness_data(args.dataset_name if args.dataset_name else None)
