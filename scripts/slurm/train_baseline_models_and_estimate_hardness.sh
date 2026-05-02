@@ -14,4 +14,9 @@ source activate pytorch
 dataset_name=$1
 split_name=$2
 
-python3 -m src.experiments.train_baseline_models_and_estimate_hardness --dataset_name "$dataset_name" --split "$split_name"
+# Remove the first two arguments, the rest are passed to the Python script
+shift 2
+
+# Call the Python script with all remaining arguments (e.g., --synthetic --masking_percentage 0.50)
+python3 -m src.experiments.train_baseline_models_and_estimate_hardness \
+    --dataset_name "$dataset_name" --split "$split_name" "$@"

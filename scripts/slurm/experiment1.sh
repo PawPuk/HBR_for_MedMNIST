@@ -3,76 +3,69 @@
 set -e
 
 echo "========================================"
-echo "Training baseline models"
+echo "Training baseline models (real + synthetic)"
 echo "========================================"
 
-echo "Training models on balanced dataset (the baseline)..."
-
+# All datasets
 dataset_names=('bloodmnist' 'pneumoniamnist' 'dermamnist' 'pathmnist' 'chestmnist' 'octmnist' 'tissuemnist' 'organamnist' 'organcmnist' 'organsmnist' 'breastmnist' 'retinamnist')
-split_names=('training' 'validation' 'test')
 
-for split_name in "${split_names[@]}"
-do
-  for dataset_name in "${dataset_names[@]}"
-  do
-      case "$dataset_name" in
-          "bloodmnist")
-              dataset_code="bl"
-              ;;
-          "pneumoniamnist")
-              dataset_code="pn"
-              ;;
-          "dermamnist")
-              dataset_code="de"
-              ;;
-          "pathmnist")
-              dataset_code="pa"
-              ;;
-          "chestmnist")
-              dataset_code="ch"
-              ;;
-          "octmnist")
-              dataset_code="oc"
-              ;;
-          "tissuemnist")
-              dataset_code="ti"
-              ;;
-          "organamnist")
-              dataset_code="oa"
-              ;;
-          "organcmnist")
-              dataset_code="ocm"
-              ;;
-          "organsmnist")
-              dataset_code="osm"
-              ;;
-          "breastmnist")
-              dataset_code="br"
-              ;;
-          "retinamnist")
-              dataset_code="re"
-              ;;
-          *)
-              dataset_code="uk"
-              ;;
-      esac
+# For both real and synthetic we only use the test split
+split_name="test"
 
-      if [ "$split_name" == "training" ]; then
-        split_code="tr"
-      elif [ "$split_name" == 'validation' ]; then
-        split_code='val'
-      else
-        split_code='tst'
-      fi
+# Mapping dataset name -> short code (same as original)
+declare -A code_map
+code_map["bloodmnist"]="bl"
+code_map["pneumoniamnist"]="pn"
+code_map["dermamnist"]="de"
+code_map["pathmnist"]="pa"
+code_map["chestmnist"]="ch"
+code_map["octmnist"]="oc"
+code_map["tissuemnist"]="ti"
+code_map["organamnist"]="oa"
+code_map["organcmnist"]="ocm"
+code_map["organsmnist"]="osm"
+code_map["breastmnist"]="br"
+code_map["retinamnist"]="re"
 
-      job_name="${split_code}${dataset_code}base"
-      log_file="Output/output_train_baseline_models_${split_name}_${dataset_name}.out"
+# Split short code
+split_code="tst"
 
-      sbatch --job-name="$job_name" --output="$log_file" \
-        scripts/slurm/train_baseline_models_and_estimate_hardness.sh "$dataset_name" "$split_name"
-  done
+# ------------------------------------------------------------
+# 1. Real data (original MedMNIST)
+# ------------------------------------------------------------
+echo "Submitting real data jobs (test split only)..."
+
+for dataset_name in "${dataset_names[@]}"; do
+    dataset_code="${code_map[$dataset_name]:-uk}"
+    job_name="${split_code}${dataset_code}base_real"
+    log_file="Output/output_train_baseline_models_${split_name}_${dataset_name}_real.out"
+
+    sbatch --job-name="$job_name" --output="$log_file" \
+        scripts/slurm/train_baseline_models_and_estimate_hardness.sh \
+        "$dataset_name" "$split_name"
+done
+
+# ------------------------------------------------------------
+# 2. Synthetic data (four masking percentages)
+# ------------------------------------------------------------
+echo "Submitting synthetic data jobs (test split only, masking percentages 0.25, 0.50, 0.75, 1.00)..."
+
+masking_percentages=(0.25 0.50 0.75 1.00)
+
+for dataset_name in "${dataset_names[@]}"; do
+    dataset_code="${code_map[$dataset_name]:-uk}"
+    for masking in "${masking_percentages[@]}"; do
+        # Format mask value for filename (e.g., mask0.25)
+        mask_str=$(echo "$masking" | sed 's/\.//')  # removes dot -> 025, 050, 075, 100
+        job_name="${split_code}${dataset_code}base_mask${mask_str}"
+        log_file="Output/output_train_baseline_models_${split_name}_${dataset_name}_mask${mask_str}.out"
+
+        sbatch --job-name="$job_name" --output="$log_file" \
+            scripts/slurm/train_baseline_models_and_estimate_hardness.sh \
+            "$dataset_name" "$split_name" "--synthetic" "--masking_percentage" "$masking"
+    done
 done
 
 echo "========================================"
-echo "All baseline models training completed."
+echo "All jobs submitted."
 echo "========================================"

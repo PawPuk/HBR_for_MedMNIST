@@ -1,7 +1,8 @@
-"""The data module: Provides two core Dataset subclasses, and the method for loading the data."""
+"""The data module: Provides Dataset subclasses and methods for loading data from MedMNIST or synthetic JPG folders."""
 
+import os
 import random
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Optional
 
 import medmnist
 import numpy as np
@@ -9,31 +10,19 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 
 from src.config.config import get_config
-from src.data.datasets import IndexedDataset
+from src.data.datasets import IndexedDataset, SyntheticDataset
 
 
 def get_transform(
-        apply_augmentation: bool,
         config: Dict[str, Union[int, float, List[int], List[float], List[str], Tuple[float, float, float]]]
 ) -> Tuple[transforms.Compose, transforms.Compose, transforms.Compose]:
     """For getting the transformation to the training and test sets."""
-    if apply_augmentation:
-        train_transform = transforms.Compose([
-            # transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(config['mean'], config['std']),
-        ])
-    else:
-        train_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(config['mean'], config['std'])
-        ])
-
-    test_transform = transforms.Compose([
+    train_transform = transforms.Compose([
+        # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(config['mean'], config['std']),
     ])
-    return train_transform, test_transform, test_transform
+    return train_transform
 
 
 def worker_init_fn(worker_id):
@@ -44,44 +33,54 @@ def worker_init_fn(worker_id):
 
 def get_dataloader(
         dataset: IndexedDataset,
-        batch_size: int,
-        shuffle: bool = False
+        batch_size: int
 ):
     """Create a DataLoader with deterministic worker initialization."""
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=1, worker_init_fn=worker_init_fn)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1, worker_init_fn=worker_init_fn)
 
 
 def load_dataset(
         dataset_name: str,
-        shuffle: bool = False,
-        apply_augmentation: bool = False
+        synthetic: bool = False,
+        masking_percentage: Optional[float] = None,
 ):
-    """Load the dataset giving control over shuffling and augmentation.
+    """Load dataset from MedMNIST, local NPZ, or synthetic JPG folders.
 
-    :param dataset_name: Name of the dataset to load (only accepts MedMNIST datasets).
-    :param shuffle: Raise this flag to shuffle the training dataset.
-    :param apply_augmentation: Raise this flag to apply data augmentation to the training set.
-
-    :return: Tuple containing DataLoader for the training set, training set, as well as DataLoaders for validation and
-    test sets.
+    :param dataset_name: Name of the dataset (e.g., 'pathmnist').
+    :param synthetic: Load from synthetic JPG images + CSV.
+    :param masking_percentage: Required if synthetic=True, one of {0.25, 0.50, 0.75, 1.00}.
+    :param synthetic_root: Root directory containing mask folders and CSV.
     """
     config = get_config(dataset_name)
     size = config['size']
-    DataClass = getattr(medmnist, medmnist.INFO[dataset_name]['python_class'])
-
-    training_transform, validation_transform, test_transform = get_transform(apply_augmentation, config)
-
+    training_transform = get_transform(config)
     as_rgb = False
-    training_set = DataClass(split='train', transform=training_transform, download=True, as_rgb=as_rgb, size=size)
-    validation_set = DataClass(split='val', transform=validation_transform, download=True, as_rgb=as_rgb, size=size)
-    test_set = DataClass(split='test', transform=test_transform, download=True, as_rgb=as_rgb, size=size)
+    synthetic_root = os.path.join('Data', f'synthetic_{dataset_name}')
 
-    training_set = IndexedDataset(training_set, apply_augmentation is False)
-    validation_set = IndexedDataset(validation_set, True)
-    test_set = IndexedDataset(test_set, True)
+    if synthetic:
+        # Create datasets for each split using the synthetic folder structure
+        train_set = SyntheticDataset(synthetic_root, dataset_name, masking_percentage,
+                                     transform=training_transform, size=size)
+        val_set = SyntheticDataset(synthetic_root, dataset_name, masking_percentage,
+                                   transform=training_transform, size=size)
+        test_set = SyntheticDataset(synthetic_root, dataset_name, masking_percentage,
+                                    transform=training_transform, size=size)
+    else:
+        # Original MedMNIST library loading
+        DataClass = getattr(medmnist, medmnist.INFO[dataset_name]['python_class'])
+        train_set = DataClass(split='train', transform=training_transform, download=True,
+                              as_rgb=as_rgb, size=size)
+        val_set = DataClass(split='val', transform=training_transform, download=True,
+                            as_rgb=as_rgb, size=size)
+        test_set = DataClass(split='test', transform=training_transform, download=True,
+                             as_rgb=as_rgb, size=size)
 
-    training_loader = get_dataloader(training_set, config['batch_size'], shuffle)
-    validation_loader = get_dataloader(validation_set, config['batch_size'])
+    train_set = IndexedDataset(train_set)
+    val_set = IndexedDataset(val_set)
+    test_set = IndexedDataset(test_set)
+
+    train_loader = get_dataloader(train_set, config['batch_size'])
+    val_loader = get_dataloader(val_set, config['batch_size'])
     test_loader = get_dataloader(test_set, config['batch_size'])
 
-    return training_loader, training_set, validation_loader, validation_set, test_loader, test_set
+    return train_loader, train_set, val_loader, val_set, test_loader, test_set

@@ -8,8 +8,13 @@ from src.data.loading import load_dataset
 from src.training.train_ensembles import ModelTrainer
 
 
-def main(dataset_name: str, split: str):
-    train_loader, train_set, val_loader, val_set, test_loader, test_set = load_dataset(dataset_name, True, True)
+def main(dataset_name: str, split: str, synthetic: bool, masking_percentage: float = None):
+    train_loader, train_set, val_loader, val_set, test_loader, test_set = load_dataset(
+        dataset_name,
+        synthetic=synthetic,
+        masking_percentage=masking_percentage,
+    )
+
     if split == 'training':
         training_set_size = len(train_set)
     elif split == 'validation':
@@ -19,19 +24,25 @@ def main(dataset_name: str, split: str):
 
     trainer = ModelTrainer(training_set_size, train_loader, val_loader, test_loader, dataset_name, split,
                            for_baseline=True)
-
     trainer.train_ensemble()
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train an ensemble of models on MedMNIST datasets.')
-    parser.add_argument('--dataset_name', type=str, required=False, default='bloodmnist',
+    parser = argparse.ArgumentParser(description='Estimate hardness on MedMNIST or synthetic data.')
+    parser.add_argument('--dataset_name', type=str, default='bloodmnist',
                         choices=['bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'chestmnist',
                                  'octmnist', 'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist',
                                  'breastmnist', 'retinamnist'],
                         help='MedMNIST dataset name.')
     parser.add_argument('--split', type=str, default='training', choices=['training', 'validation', 'test'],
                         help='Split on which hardness will be estimated.')
+    parser.add_argument('--synthetic', action='store_true', default=False,
+                        help='Use synthetic JPG dataset instead of original MedMNIST.')
+    parser.add_argument('--masking_percentage', type=float, choices=[0.25, 0.50, 0.75, 1.00],
+                        help='Masking percentage for synthetic data (required if --synthetic).')
 
     args = parser.parse_args()
-    main(args.dataset_name, args.split)
+    if args.synthetic and args.masking_percentage is None:
+        parser.error("--masking_percentage is required when --synthetic is set.")
+
+    main(args.dataset_name, args.split, args.synthetic, args.masking_percentage)

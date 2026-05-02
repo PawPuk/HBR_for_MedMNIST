@@ -27,7 +27,8 @@ class ModelTrainer:
             test_loader: Union[DataLoader, None],
             dataset_name: str,
             split: str,
-            for_baseline: bool = False
+            for_baseline: bool = False,
+            run_suffix: str = ""
     ):
         """
         Initialize the ModelTrainer class with configuration specific to the dataset.
@@ -40,6 +41,7 @@ class ModelTrainer:
         :param split: Name of the split on which hardness estimation will be performed
         :param for_baseline: A flag used to indicate whether the training is performed for baseline models (in which
         case we train only one ensemble with more models) or for resampling (where we train multiple smaller ensembles)
+        :param run_suffix: Optional suffix added to save path (e.g., masking percentage) to avoid overwrites.
         """
         self.training_set_size = training_set_size
         self.split = split
@@ -50,6 +52,7 @@ class ModelTrainer:
         else:
             self.loader = test_loader
         self.dataset_name = dataset_name
+        self.run_suffix = run_suffix
 
         self.config = get_config(self.dataset_name)
 
@@ -128,4 +131,4 @@ class ModelTrainer:
                     # Average hardness estimates (the ones that used learning dynamics) over all epochs.
                     hardness_estimates[(dataset_id, model_id)][estimator] = np.mean(
                         hardness_estimates[(dataset_id, model_id)][estimator], axis=1)
-                save_results(hardness_estimates, (dataset_id, model_id), self.dataset_name, self.split)
+                save_results(hardness_estimates, (dataset_id, model_id), self.dataset_name, self.split, self.run_suffix)
