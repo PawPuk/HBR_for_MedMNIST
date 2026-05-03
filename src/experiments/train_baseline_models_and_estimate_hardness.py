@@ -36,7 +36,7 @@ if __name__ == '__main__':
                                  'octmnist', 'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist',
                                  'breastmnist', 'retinamnist'],
                         help='MedMNIST dataset name.')
-    parser.add_argument('--split', type=str, default='training', choices=['training', 'validation', 'test'],
+    parser.add_argument('--split', type=str, default='test', choices=['training', 'validation', 'test'],
                         help='Split on which hardness will be estimated.')
     parser.add_argument('--synthetic', action='store_true', default=False,
                         help='Use synthetic JPG dataset instead of original MedMNIST.')

@@ -49,7 +49,6 @@ def load_dataset(
     :param dataset_name: Name of the dataset (e.g., 'pathmnist').
     :param synthetic: Load from synthetic JPG images + CSV.
     :param masking_percentage: Required if synthetic=True, one of {0.25, 0.50, 0.75, 1.00}.
-    :param synthetic_root: Root directory containing mask folders and CSV.
     """
     config = get_config(dataset_name)
     size = config['size']

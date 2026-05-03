@@ -108,7 +108,8 @@ class ModelTrainer:
     ):
         """Train an ensemble of models."""
 
-        latest_model_indices = get_latest_model_index(self.dataset_name, self.split, self.dataset_count)
+        latest_model_indices = get_latest_model_index(self.dataset_name, self.split, self.dataset_count,
+                                                      self.run_suffix)
 
         print(f"Starting training {self.dataset_count} ensembles of {self.num_models_to_train_per_dataset} models each "
               f"on the {self.split} split of {self.dataset_name}.")
