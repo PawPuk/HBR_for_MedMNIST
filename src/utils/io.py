@@ -33,10 +33,7 @@ def save_results(hardness_estimates: Dict[Tuple[int, int], Dict[str, List[float]
     os.makedirs(hardness_save_dir, exist_ok=True)
 
     # Build filename with suffix if provided
-    if suffix:
-        filename = f'{split}_hardness_estimates_{suffix}.pkl'
-    else:
-        filename = f'{split}_hardness_estimates.pkl'
+    filename = f'{split}_hardness_estimates_{suffix}.pkl'
     path = os.path.join(hardness_save_dir, filename)
 
     old_hardness_estimates = load_previous_hardness_estimates(path)

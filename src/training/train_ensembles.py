@@ -27,7 +27,6 @@ class ModelTrainer:
             test_loader: Union[DataLoader, None],
             dataset_name: str,
             split: str,
-            for_baseline: bool = False,
             run_suffix: str = ""
     ):
         """
@@ -39,8 +38,6 @@ class ModelTrainer:
         :param test_loader: DataLoader for the test set.
         :param dataset_name: The name of the dataset. Used for saving
         :param split: Name of the split on which hardness estimation will be performed
-        :param for_baseline: A flag used to indicate whether the training is performed for baseline models (in which
-        case we train only one ensemble with more models) or for resampling (where we train multiple smaller ensembles)
         :param run_suffix: Optional suffix added to save path (e.g., masking percentage) to avoid overwrites.
         """
         self.training_set_size = training_set_size
@@ -59,12 +56,8 @@ class ModelTrainer:
         self.num_epochs = self.config['num_epochs']
         # For baseline training we train single ensemble as there is only one dataset (unlike with resampling
         # experiments where we train on multiple versions of a dataset to account for variability in resampling)
-        if for_baseline:
-            self.num_models_to_train_per_dataset = self.config['num_datasets'] * self.config['num_models_per_dataset']
-            self.dataset_count = 1
-        else:
-            self.num_models_to_train_per_dataset = self.config['num_models_per_dataset']
-            self.dataset_count = self.config['num_datasets']
+        self.num_models_to_train_per_dataset = self.config['num_datasets'] * self.config['num_models_per_dataset']
+        self.dataset_count = 1
 
     def train_model(
             self,
@@ -94,7 +87,7 @@ class ModelTrainer:
         hardness_estimates[dataset_model_id]['Forgetting'] = [0 for _ in range(self.training_set_size)]
         remembering = [False for _ in range(self.training_set_size)]  # Required to computing Forgetting
 
-        for epoch in range(self.config['num_epochs']):
+        for epoch in tqdm(range(self.config['num_epochs']), desc='Iterating through epochs.'):
             model.train()
 
             for inputs, labels, indices in self.loader:

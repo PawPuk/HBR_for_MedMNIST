@@ -22,8 +22,10 @@ def main(dataset_name: str, split: str, synthetic: bool, masking_percentage: flo
     else:
         training_set_size = len(test_set)
 
+    suffix = f"syn{masking_percentage}" if synthetic else "real"
+
     trainer = ModelTrainer(training_set_size, train_loader, val_loader, test_loader, dataset_name, split,
-                           for_baseline=True)
+                           run_suffix=suffix)
     trainer.train_ensemble()
 
 
