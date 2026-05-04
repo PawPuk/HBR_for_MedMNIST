@@ -9,23 +9,12 @@ from src.training.train_ensembles import ModelTrainer
 
 
 def main(dataset_name: str, split: str, synthetic: bool, masking_percentage: float = None):
-    train_loader, train_set, val_loader, val_set, test_loader, test_set = load_dataset(
-        dataset_name,
-        synthetic=synthetic,
-        masking_percentage=masking_percentage,
-    )
+    dataloader, dataset = load_dataset(dataset_name, split, synthetic=synthetic, masking_percentage=masking_percentage)
 
-    if split == 'training':
-        training_set_size = len(train_set)
-    elif split == 'validation':
-        training_set_size = len(val_set)
-    else:
-        training_set_size = len(test_set)
-
+    dataset_size = len(dataset)
     suffix = f"syn{masking_percentage}" if synthetic else "real"
 
-    trainer = ModelTrainer(training_set_size, train_loader, val_loader, test_loader, dataset_name, split,
-                           run_suffix=suffix)
+    trainer = ModelTrainer(dataset_size, dataloader, dataset_name, split, run_suffix=suffix)
     trainer.train_ensemble()
 
 

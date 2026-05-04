@@ -41,13 +41,15 @@ def get_dataloader(
 
 def load_dataset(
         dataset_name: str,
+        split: str,
         synthetic: bool = False,
-        masking_percentage: Optional[float] = None,
+        masking_percentage: Optional[float] = None
 ):
-    """Load dataset from MedMNIST, local NPZ, or synthetic JPG folders.
+    """Load dataset from MedMNIST or synthetic JPG folders.
 
     :param dataset_name: Name of the dataset (e.g., 'pathmnist').
-    :param synthetic: Load from synthetic JPG images + CSV.
+    :param split: Name of the split ('train', 'val' or 'test').
+    :param synthetic: Load from synthetic JPG images.
     :param masking_percentage: Required if synthetic=True, one of {0.25, 0.50, 0.75, 1.00}.
     """
     config = get_config(dataset_name)
@@ -58,28 +60,15 @@ def load_dataset(
 
     if synthetic:
         # Create datasets for each split using the synthetic folder structure
-        train_set = SyntheticDataset(synthetic_root, dataset_name, masking_percentage,
-                                     transform=training_transform, size=size)
-        val_set = SyntheticDataset(synthetic_root, dataset_name, masking_percentage,
-                                   transform=training_transform, size=size)
-        test_set = SyntheticDataset(synthetic_root, dataset_name, masking_percentage,
-                                    transform=training_transform, size=size)
+        dataset = SyntheticDataset(synthetic_root, masking_percentage, transform=training_transform, size=size,
+                                   split=split)
     else:
         # Original MedMNIST library loading
         DataClass = getattr(medmnist, medmnist.INFO[dataset_name]['python_class'])
-        train_set = DataClass(split='train', transform=training_transform, download=True,
-                              as_rgb=as_rgb, size=size)
-        val_set = DataClass(split='val', transform=training_transform, download=True,
-                            as_rgb=as_rgb, size=size)
-        test_set = DataClass(split='test', transform=training_transform, download=True,
-                             as_rgb=as_rgb, size=size)
+        dataset = DataClass(split=split, transform=training_transform, download=True, as_rgb=as_rgb, size=size)
 
-    train_set = IndexedDataset(train_set)
-    val_set = IndexedDataset(val_set)
-    test_set = IndexedDataset(test_set)
+    indexed_dataset = IndexedDataset(dataset)
 
-    train_loader = get_dataloader(train_set, config['batch_size'])
-    val_loader = get_dataloader(val_set, config['batch_size'])
-    test_loader = get_dataloader(test_set, config['batch_size'])
+    dataloader = get_dataloader(indexed_dataset, config['batch_size'])
 
-    return train_loader, train_set, val_loader, val_set, test_loader, test_set
+    return dataloader, indexed_dataset

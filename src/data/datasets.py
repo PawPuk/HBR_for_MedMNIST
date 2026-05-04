@@ -31,28 +31,35 @@ class IndexedDataset(torch.utils.data.Dataset):
 
 
 class SyntheticDataset(Dataset):
-    """Dataset for synthetic images stored as .jpg files, with labels from a CSV file.
+    """Dataset for synthetic images stored as .jpg files, supporting train/val/test splits.
 
     Expected folder structure:
         root/
             mask{masking_percentage}_drop0.00/
-            {dataset_name}.csv
+                train0_0.jpg
+                val0_0.jpg
+                test0_0.jpg
+                test1_5.jpg
+                ...
 
-    The CSV must have columns: split, filename, label
-    (e.g., "TEST,test_1234.jpg,0")
+    Filename format: '{split}{sample_idx}_{label}.jpg' → split prefix and label extracted.
     """
-    def __init__(self, root: str, dataset_name: str, masking_percentage: float,
-                 transform=None, size: Optional[int] = None):
+
+    def __init__(self, root: str, masking_percentage: float,
+                 split: str, transform=None, size: Optional[int] = None):
         """
         Args:
-            root: Root directory containing the mask folders and the CSV.
-            dataset_name: Name of the dataset (e.g., 'pathmnist').
+            root: Root directory containing the mask folders.
             masking_percentage: One of 0.25, 0.50, 0.75, 1.00.
+            split: Which split to load ('train', 'val', 'test'). Default 'test'.
             transform: Torchvision transform to apply to images.
             size: Target size (int) to resize images to; if None, no resizing.
+                  If provided, will check the first image's dimensions and resize
+                  only if they do not already match the target size.
         """
         self.root = root
         self.masking_percentage = masking_percentage
+        self.split = split
         self.transform = transform
         self.size = size
 
@@ -62,23 +69,34 @@ class SyntheticDataset(Dataset):
             folder_name = "mask1.00_drop0.00"
         self.image_dir = os.path.join(root, folder_name)
 
-        # Load CSV and filter rows for this split
-        csv_path = os.path.join(root, f"{dataset_name}.csv")
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+        if not os.path.isdir(self.image_dir):
+            raise FileNotFoundError(f"Image directory not found: {self.image_dir}")
 
+        # Gather all .jpg files and extract labels from filenames
         self.samples = []
-        with open(csv_path, 'r') as f:
-            reader = csv.reader(f)
-            header = next(reader)  # assume header: split,filename,label
-            filename_col = header.index('filename') if 'filename' in header else 1
-            label_col = header.index('label') if 'label' in header else 2
+        for filename in os.listdir(self.image_dir):
+            if not filename.lower().endswith('.jpg'):
+                continue
 
-            for row in reader:
-                self.samples.append((row[filename_col], int(row[label_col])))
+            # Check that filename starts with split prefix (e.g., 'test', 'train', 'val')
+            if not filename.startswith(split):
+                continue
+
+            # Extract label from filename: {split}{sample_idx}_{label}.jpg
+            name_without_ext = os.path.splitext(filename)[0]  # e.g., "test123_5"
+            try:
+                # Split by '_' and take the last part as label
+                label = int(name_without_ext.split('_')[-1])
+            except (ValueError, IndexError):
+                continue  # skip files that don't match the pattern
+
+            self.samples.append((filename, label))
 
         if not self.samples:
-            raise ValueError(f"No samples found in {csv_path}")
+            raise ValueError(f"No valid .jpg files found for split '{split}' in {self.image_dir}")
+
+        # Sort to have deterministic order (required even if we later shuffle to ensure reproducibility)
+        self.samples.sort(key=lambda x: x[0])
 
     def __len__(self):
         return len(self.samples)

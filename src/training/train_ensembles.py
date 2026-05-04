@@ -21,10 +21,8 @@ class ModelTrainer:
     """Allows training ensembles of models as well as estimating hardness."""
     def __init__(
             self,
-            training_set_size: int,
-            training_loader: DataLoader,
-            validation_loader: Union[DataLoader, None],
-            test_loader: Union[DataLoader, None],
+            dataset_size: int,
+            dataloader: DataLoader,
             dataset_name: str,
             split: str,
             run_suffix: str = ""
@@ -32,22 +30,15 @@ class ModelTrainer:
         """
         Initialize the ModelTrainer class with configuration specific to the dataset.
 
-        :param training_set_size: Specified the size of the training set. This is only useful for measuring hardness.
-        :param training_loader: DataLoader for the training datasets.
-        :param validation_loader: Dataloader for the validation set.
-        :param test_loader: DataLoader for the test set.
+        :param dataset_size: Specified the size of the dataset. This is required for initializing hardness estimates.
+        :param dataloader: DataLoader wrapping the dataset on which hardness will be estimated.
         :param dataset_name: The name of the dataset. Used for saving
         :param split: Name of the split on which hardness estimation will be performed
         :param run_suffix: Optional suffix added to save path (e.g., masking percentage) to avoid overwrites.
         """
-        self.training_set_size = training_set_size
+        self.dataset_size = dataset_size
         self.split = split
-        if split == 'training':
-            self.loader = training_loader
-        elif split == 'validation':
-            self.loader = validation_loader
-        else:
-            self.loader = test_loader
+        self.loader = dataloader
         self.dataset_name = dataset_name
         self.run_suffix = run_suffix
 
@@ -77,10 +68,10 @@ class ModelTrainer:
         for estimator in ['AUM', 'DataIQ']:
             # hardness_estimates[dataset_model_id][estimator][epoch_index][sample_index]: float
             hardness_estimates[current_model_index][estimator] = [[0.0 for _ in range(self.num_epochs)]
-                                                                  for _ in range(self.training_set_size)]
+                                                                  for _ in range(self.dataset_size)]
         # hardness_estimates[dataset_model_id]['Forgetting'][sample_index]: int
-        hardness_estimates[current_model_index]['Forgetting'] = [0 for _ in range(self.training_set_size)]
-        remembering = [False for _ in range(self.training_set_size)]  # Required to computing Forgetting
+        hardness_estimates[current_model_index]['Forgetting'] = [0 for _ in range(self.dataset_size)]
+        remembering = [False for _ in range(self.dataset_size)]  # Required to computing Forgetting
 
         for epoch in tqdm(range(self.config['num_epochs']), desc='Iterating through epochs.'):
             model.train()
