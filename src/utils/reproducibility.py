@@ -9,15 +9,13 @@ import torch
 
 def compute_current_seed(
         config: Dict[str, Union[int, float, str, List[int], List[float], List[str], Tuple[float, float, float]]],
-        current_dataset_index: int,
         current_model_index: int
 ) -> int:
     """Compute the seed for training the current model."""
     base_seed = config['probe_base_seed']
     seed_step = config['probe_seed_step']
-    dataset_step = config['probe_dataset_step']
 
-    seed = base_seed + current_dataset_index * dataset_step + current_model_index * seed_step
+    seed = base_seed + current_model_index * seed_step
     return seed
 
 

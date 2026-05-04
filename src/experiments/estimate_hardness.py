@@ -1,5 +1,5 @@
 """
-This module trains an ensemble on the balanced, full-sized dataset and computes the hardness of each sample.
+This module estimates hardness of each sample on the specified dataset. Works both with real and synthetic data.
 """
 
 import argparse

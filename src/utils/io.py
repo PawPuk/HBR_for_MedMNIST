@@ -22,7 +22,7 @@ def load_previous_hardness_estimates(path: str) -> Union[Dict, Dict[Tuple[int, i
         return {}
 
 
-def save_results(hardness_estimates: Dict[Tuple[int, int], Dict[str, List[float]]], dataset_model_id: Tuple[int, int],
+def save_results(hardness_estimates: Dict[Tuple[int, int], Dict[str, List[float]]], model_id: Tuple[int, int],
                  dataset_name: str, split: str, suffix: str = ""):
     """
     The purpose of this function is to enable easier generation of results. If we already spent a lot of
@@ -37,7 +37,7 @@ def save_results(hardness_estimates: Dict[Tuple[int, int], Dict[str, List[float]
     path = os.path.join(hardness_save_dir, filename)
 
     old_hardness_estimates = load_previous_hardness_estimates(path)
-    old_hardness_estimates[dataset_model_id] = hardness_estimates[dataset_model_id]
+    old_hardness_estimates[model_id] = hardness_estimates[model_id]
 
     with open(path, "wb") as file:
         print(f'Saving updated hardness estimates to {path}')

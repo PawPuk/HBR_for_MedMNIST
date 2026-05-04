@@ -54,20 +54,15 @@ class ModelTrainer:
         self.config = get_config(self.dataset_name)
 
         self.num_epochs = self.config['num_epochs']
-        # For baseline training we train single ensemble as there is only one dataset (unlike with resampling
-        # experiments where we train on multiple versions of a dataset to account for variability in resampling)
-        self.num_models_to_train_per_dataset = self.config['num_datasets'] * self.config['num_models_per_dataset']
-        self.dataset_count = 1
+        self.num_models_to_train = self.config['num_models']
 
     def train_model(
             self,
-            current_dataset_index: int,
             current_model_index: int,
             hardness_estimates: Union[Dict[Tuple[int, int], Dict], None]
     ):
         """Train a single model."""
-        dataset_model_id = (current_dataset_index, current_model_index)
-        seed = compute_current_seed(self.config, current_dataset_index, current_model_index)
+        seed = compute_current_seed(self.config, current_model_index)
         set_reproducibility(seed)
 
         model = ResNet18(in_channels=self.config['n_channels'], num_classes=self.config['num_classes']).to(DEVICE)
@@ -81,10 +76,10 @@ class ModelTrainer:
 
         for estimator in ['AUM', 'DataIQ']:
             # hardness_estimates[dataset_model_id][estimator][epoch_index][sample_index]: float
-            hardness_estimates[dataset_model_id][estimator] = [[0.0 for _ in range(self.num_epochs)]
-                                                               for _ in range(self.training_set_size)]
+            hardness_estimates[current_model_index][estimator] = [[0.0 for _ in range(self.num_epochs)]
+                                                                  for _ in range(self.training_set_size)]
         # hardness_estimates[dataset_model_id]['Forgetting'][sample_index]: int
-        hardness_estimates[dataset_model_id]['Forgetting'] = [0 for _ in range(self.training_set_size)]
+        hardness_estimates[current_model_index]['Forgetting'] = [0 for _ in range(self.training_set_size)]
         remembering = [False for _ in range(self.training_set_size)]  # Required to computing Forgetting
 
         for epoch in tqdm(range(self.config['num_epochs']), desc='Iterating through epochs.'):
@@ -100,7 +95,7 @@ class ModelTrainer:
 
                 _, predicted = torch.max(outputs.data, 1)
                 estimate_instance_hardness(indices, inputs, outputs, labels, predicted, hardness_estimates, epoch,
-                                           remembering, dataset_model_id)
+                                           remembering, current_model_index)
             scheduler.step()
 
     def train_ensemble(
@@ -108,21 +103,18 @@ class ModelTrainer:
     ):
         """Train an ensemble of models."""
 
-        latest_model_indices = get_latest_model_index(self.dataset_name, self.split, self.dataset_count,
-                                                      self.run_suffix)
+        latest_model_index = get_latest_model_index(self.dataset_name, self.split, self.run_suffix)
 
-        print(f"Starting training {self.dataset_count} ensembles of {self.num_models_to_train_per_dataset} models each "
-              f"on the {self.split} split of {self.dataset_name}.")
+        print(f"Starting training ensemble of {self.num_models_to_train} models on the {self.split} split of "
+              f"{self.dataset_name}.")
         print(f"Number of samples in the used DataLoader: {len(cast(Sized, self.loader.dataset))}")
         print('-'*20)
 
-        for dataset_id in tqdm(range(self.dataset_count)):
-            for model_id in tqdm(range(latest_model_indices[dataset_id] + 1, self.num_models_to_train_per_dataset)):
-                hardness_estimates = {(dataset_id, model_id): {}}
-                self.train_model(dataset_id, model_id, hardness_estimates)
-                # Even though we computed multiple hardness estimates we only used AUM for our core experiments.
-                for estimator in ['AUM', 'DataIQ']:
-                    # Average hardness estimates (the ones that used learning dynamics) over all epochs.
-                    hardness_estimates[(dataset_id, model_id)][estimator] = np.mean(
-                        hardness_estimates[(dataset_id, model_id)][estimator], axis=1)
-                save_results(hardness_estimates, (dataset_id, model_id), self.dataset_name, self.split, self.run_suffix)
+        for model_id in tqdm(range(latest_model_index + 1, self.num_models_to_train)):
+            hardness_estimates = {model_id: {}}
+            self.train_model(model_id, hardness_estimates)
+            for estimator in ['AUM', 'DataIQ']:
+                # Average hardness estimates (the ones that used learning dynamics) over all epochs.
+                hardness_estimates[model_id][estimator] = np.mean(
+                    hardness_estimates[model_id][estimator], axis=1)
+            save_results(hardness_estimates, model_id, self.dataset_name, self.split, self.run_suffix)

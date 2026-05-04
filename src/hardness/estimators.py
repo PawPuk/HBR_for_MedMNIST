@@ -12,11 +12,9 @@ def estimate_instance_hardness(
         hardness_estimates: Dict[Tuple[int, int], Dict[str, List[Union[int, List[float]]]]],
         epoch: int,
         remembering: List[bool],
-        dataset_model_id: Tuple[int, int]
+        current_model_index: Tuple[int, int]
 ):
-    """Estimate hardness through AUM, DataIQ, and Forgetting. In our work we use AUM as the default estimator for
-    resampling and pruning. This function is used in train_ensemble.py and is called only when running
-    train_baseline_models.py."""
+    """Estimate hardness through AUM, DataIQ, and Forgetting."""
 
     for index_within_batch, (i, x, logits, correct_label) in enumerate(zip(batch_indices, inputs, outputs, labels)):
         i = i.item()
@@ -26,15 +24,15 @@ def estimate_instance_hardness(
         logits = logits.detach()
         correct_logit = logits[correct_label].item()
         probs = torch.nn.functional.softmax(logits, dim=0)
-        # AUM
+        # AUM (https://arxiv.org/pdf/2001.10528)
         max_other_logit = torch.max(torch.cat((logits[:correct_label], logits[correct_label + 1:]))).item()
-        hardness_estimates[dataset_model_id]['AUM'][i][epoch] = correct_logit - max_other_logit
-        # DataIQ (aleatoric uncertainty)
+        hardness_estimates[current_model_index]['AUM'][i][epoch] = correct_logit - max_other_logit
+        # DataIQ (aleatoric uncertainty; https://arxiv.org/pdf/2210.13043)
         p_y = probs[correct_label].item()
-        hardness_estimates[dataset_model_id]['DataIQ'][i][epoch] = p_y * (1 - p_y)
-        # Forgetting
+        hardness_estimates[current_model_index]['DataIQ'][i][epoch] = p_y * (1 - p_y)
+        # Forgetting (https://arxiv.org/abs/1812.05159)
         if predicted_label == correct_label:
             remembering[i] = True
         elif predicted_label != correct_label and remembering[i]:
-            hardness_estimates[dataset_model_id]['Forgetting'][i] += 1
+            hardness_estimates[current_model_index]['Forgetting'][i] += 1
             remembering[i] = False
