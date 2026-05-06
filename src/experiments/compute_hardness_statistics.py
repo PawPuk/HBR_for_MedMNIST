@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 import pickle
 from typing import List
@@ -13,7 +14,7 @@ from src.utils.io import load_results
 
 
 def get_class_cardinalities(loader: DataLoader, num_classes: int) -> List[int]:
-    class_counts = [0] * num_classes
+    class_counts = [0 for _ in range(num_classes)]
     for _, labels, _ in loader:
         for label in labels:
             class_counts[label] += 1
@@ -50,7 +51,7 @@ def compute_hardness_data_for_split(dataset_name: str, split: str, loader: DataL
 
     for est in estimators:
         # Pre‑load hardness over models (list of lists)
-        hardness_over_models = [hardness_estimates[(0, model_id)][est] for model_id in range(n_models_total)]
+        hardness_over_models = [hardness_estimates[model_id][est] for model_id in range(n_models_total)]
 
         all_hardness_by_class[est] = {}
         all_hard_samples[est] = {}
@@ -90,7 +91,6 @@ def compute_hardness_data_for_split(dataset_name: str, split: str, loader: DataL
             all_hard_samples_by_class[est][num_models] = hard_samples_by_class_for_threshold
             all_final_hardness[est][num_models] = final_hardness
 
-    # Assemble data dictionary for this split
     data = {
         'class_cardinalities': class_cardinalities,
         'thresholds': thresholds,
@@ -104,67 +104,113 @@ def compute_hardness_data_for_split(dataset_name: str, split: str, loader: DataL
     return data
 
 
-def compute_all_hardness_data(dataset_names: List[str] = None):
-    """Compute hardness statistics for all specified datasets (or all MedMNIST datasets if None).
-    For each dataset, processes train, validation and test splits separately,
-    skipping any split for which the output file already exists."""
+def process_real_data(dataset_names: List[str], skip_existing: bool = True):
+    """Original real‑data processing."""
+    for dataset_name in dataset_names:
+        base_dir = os.path.join(ROOT, f'Results/{dataset_name}')
+        if not os.path.isdir(base_dir):
+            print(f"⚠ Directory {base_dir} not found, skipping {dataset_name}")
+            continue
 
-    # All available MedMNIST datasets
+        hardness_path = os.path.join(base_dir, f"test_hardness_estimates_real.pkl")
+        if not os.path.exists(hardness_path):
+            print(f"⚠ No real hardness estimate files found for {dataset_name}")
+            continue
+
+        print(f"\n{'=' * 60}\nDataset: {dataset_name} (real)\n{'=' * 60}")
+
+        out_filename = f"test_hardness_data_real.pkl"
+        save_path = os.path.join(base_dir, out_filename)
+        if skip_existing and os.path.exists(save_path):
+            print(f"✓ Real data already processed (skipping)")
+            continue
+
+        hardness_path = os.path.join(ROOT, f'Results/{dataset_name}/test_hardness_estimates_real.pkl')
+        loader, _ = load_dataset(dataset_name, 'test')
+        hardness_estimates = load_results(hardness_path)
+        data = compute_hardness_data_for_split(dataset_name, 'test', loader, hardness_estimates)
+        with open(save_path, 'wb') as f:
+            pickle.dump(data, f)
+
+
+def process_synthetic_data(dataset_names: List[str], skip_existing: bool = True):
+    """Process synthetic hardness estimates for all discovered mask percentages."""
+    for dataset_name in dataset_names:
+        base_dir = os.path.join(ROOT, f'Results/{dataset_name}')
+        if not os.path.isdir(base_dir):
+            print(f"⚠ Directory {base_dir} not found, skipping {dataset_name}")
+            continue
+
+        # Find all hardness estimate files for this dataset.
+        # Pattern: {split}_hardness_estimates_syn*.pkl
+        all_est_files = glob.glob(os.path.join(base_dir, '*_hardness_estimates_syn*.pkl'))
+
+        # Group by split and extract masking percentage
+        split_to_suffixes = {}
+        for fpath in all_est_files:
+            basename = os.path.basename(fpath)
+            # format: {split}_hardness_estimates_syn{masking_percentage}.pkl
+            parts = basename.split('_hardness_estimates_syn')
+            split = parts[0]  # 'train', 'val', or 'test'
+            masking_percentage = parts[1].replace('.pkl', '')  # '0.25', '0.5', '0.75', '1.0'
+            split_to_suffixes.setdefault(split, set()).add(masking_percentage)
+
+        if not split_to_suffixes:
+            print(f"⚠ No synthetic hardness estimate files found for {dataset_name}")
+            continue
+
+        # For each mask percentage (same across splits), process all three splits
+        all_suffixes = set()
+        for suffixes in split_to_suffixes.values():
+            all_suffixes.update(suffixes)
+
+        for mask_suffix in sorted(all_suffixes):
+            print(f"\n{'=' * 60}")
+            print(f"Dataset: {dataset_name} | Synthetic mask: {mask_suffix}")
+            print(f"{'=' * 60}")
+
+            masking_percentage = float(mask_suffix)
+
+            # Process each split
+            for split_name in ['train', 'val', 'test']:
+                # Output file for hardness data
+                out_filename = f"{split_name}_hardness_data_syn{mask_suffix}.pkl"
+                save_path = os.path.join(base_dir, out_filename)
+                if skip_existing and os.path.exists(save_path):
+                    print(f"✓ {split_name} split already processed (skipping)")
+                    continue
+
+                # Input hardness estimates file
+                hardness_path = os.path.join(base_dir, f"{split_name}_hardness_estimates_syn{mask_suffix}.pkl")
+                if not os.path.exists(hardness_path):
+                    print(f"⚠ Warning: {hardness_path} not found, skipping {split_name} split.")
+                    continue
+
+                print(f"\n🔄 Processing {split_name} split (synthetic, mask={mask_suffix})...")
+                loader, _ = load_dataset(dataset_name, split_name, True, masking_percentage)
+                hardness_estimates = load_results(hardness_path)
+                data = compute_hardness_data_for_split(dataset_name, split_name, loader, hardness_estimates)
+                with open(save_path, 'wb') as f:
+                    pickle.dump(data, f)
+
+
+def compute_all_hardness_data(dataset_names: List[str] = None, synthetic: bool = False):
+    """Main dispatcher: process real or synthetic data."""
     all_datasets = [
-        'bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'octmnist', 'tissuemnist',
-        'organamnist', 'organcmnist', 'organsmnist', 'breastmnist', 'retinamnist'
+        'bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'chestmnist', 'octmnist',
+        'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist', 'breastmnist', 'retinamnist'
     ]
-
-    # If no specific datasets provided, process all
     if dataset_names is None:
         dataset_names = all_datasets
 
     print(f"\n{'=' * 60}")
-    print(f"Processing {len(dataset_names)} datasets: {', '.join(dataset_names)}")
+    print(f"Processing {len(dataset_names)} datasets (mode: {'synthetic' if synthetic else 'real'})")
     print(f"{'=' * 60}\n")
 
-    for dataset_idx, dataset_name in enumerate(dataset_names, 1):
-        print(f"\n{'=' * 60}")
-        print(f"Dataset {dataset_idx}/{len(dataset_names)}: {dataset_name}")
-        print(f"{'=' * 60}")
-
-        # Load the dataset once to get the three loaders
-        train_loader, _, val_loader, _, test_loader, _ = load_dataset(dataset_name)
-
-        splits = [
-            ('training', train_loader, 'training_hardness_data.pkl'),
-            ('validation', val_loader, 'validation_hardness_data.pkl'),
-            ('test', test_loader, 'test_hardness_data.pkl')
-        ]
-
-        for split_name, loader, out_filename in splits:
-            save_path = os.path.join(ROOT, f'Results/{dataset_name}/{out_filename}')
-
-            # Skip if output already exists
-            if os.path.exists(save_path):
-                print(f"✓ {split_name} split already processed (found {save_path})")
-                continue
-
-            # Load the corresponding hardness estimates file
-            hardness_path = os.path.join(ROOT, f'Results/{dataset_name}/{split_name}_hardness_estimates.pkl')
-            if not os.path.exists(hardness_path):
-                print(f"⚠ Warning: {hardness_path} not found, skipping {split_name} split.")
-                continue
-
-            hardness_estimates = load_results(hardness_path)
-
-            print(f"\n🔄 Processing {split_name} split...")
-            data = compute_hardness_data_for_split(dataset_name, split_name, loader, hardness_estimates)
-
-            with open(save_path, 'wb') as f:
-                pickle.dump(data, f)
-            print(f"✓ Saved hardness data to {save_path}")
-
-        print(f"\n✓ Completed dataset: {dataset_name}")
-
-    print(f"\n{'=' * 60}")
-    print("Processing complete!")
-    print(f"{'=' * 60}")
+    if synthetic:
+        process_synthetic_data(dataset_names)
+    else:
+        process_real_data(dataset_names)
 
 
 if __name__ == '__main__':
@@ -174,7 +220,8 @@ if __name__ == '__main__':
                         choices=['bloodmnist', 'pneumoniamnist', 'dermamnist', 'pathmnist', 'chestmnist',
                                  'octmnist', 'tissuemnist', 'organamnist', 'organcmnist', 'organsmnist',
                                  'breastmnist', 'retinamnist'])
+    parser.add_argument('--synthetic', action='store_true', default=False,
+                        help='Process synthetic hardness estimates (auto‑discovers all mask percentages).')
     args = parser.parse_args()
 
-    # If datasets are provided, use them; otherwise process all
-    compute_all_hardness_data(args.dataset_name if args.dataset_name else None)
+    compute_all_hardness_data(args.dataset_name if args.dataset_name else None, synthetic=args.synthetic)

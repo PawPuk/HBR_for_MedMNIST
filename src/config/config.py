@@ -43,7 +43,7 @@ _base_config = {
     'size': 28,  # the image size of the dataset, 28 or 64 or 128 or 224 are possible, but we use 28.
 
     # Experimental robustness parameters
-    'num_models_per_dataset': 16,    # number of models trained on each dataset variant
+    'num_models': 10,    # number of models trained on each dataset variant
 }
 
 _dataset_specific_config = {

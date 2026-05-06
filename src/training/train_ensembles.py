@@ -19,14 +19,7 @@ from src.utils.structures import get_latest_model_index
 
 class ModelTrainer:
     """Allows training ensembles of models as well as estimating hardness."""
-    def __init__(
-            self,
-            dataset_size: int,
-            dataloader: DataLoader,
-            dataset_name: str,
-            split: str,
-            run_suffix: str = ""
-    ):
+    def __init__(self, dataset_size: int, dataloader: DataLoader, dataset_name: str, split: str, run_suffix: str = ""):
         """
         Initialize the ModelTrainer class with configuration specific to the dataset.
 
@@ -47,11 +40,7 @@ class ModelTrainer:
         self.num_epochs = self.config['num_epochs']
         self.num_models_to_train = self.config['num_models']
 
-    def train_model(
-            self,
-            current_model_index: int,
-            hardness_estimates: Union[Dict[Tuple[int, int], Dict], None]
-    ):
+    def train_model(self, current_model_index: int, hardness_estimates: Dict[Tuple[int, int], Dict]):
         """Train a single model."""
         seed = compute_current_seed(self.config, current_model_index)
         set_reproducibility(seed)
@@ -89,9 +78,7 @@ class ModelTrainer:
                                            remembering, current_model_index)
             scheduler.step()
 
-    def train_ensemble(
-            self
-    ):
+    def train_ensemble(self):
         """Train an ensemble of models."""
 
         latest_model_index = get_latest_model_index(self.dataset_name, self.split, self.run_suffix)

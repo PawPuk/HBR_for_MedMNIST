@@ -12,7 +12,7 @@ def get_latest_model_index(dataset_name: str, split: str, suffix: str) -> List[i
 
     Args:
         dataset_name: Name of the dataset (used to locate the results' folder)
-        split: 'training', 'validation' or 'test'
+        split: 'train', 'val' or 'test'
         suffix: differentiates between hardness estimates on real and synthetic data
                 (and between different synthetic data)
 
