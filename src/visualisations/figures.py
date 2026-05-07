@@ -1,8 +1,13 @@
+import glob
 import os
 from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from src.config.config import ROOT
+from src.utils.io import load_results
+from src.utils.stats import compute_mean_std
 
 
 def plot_hard_sample_pairwise_overlap(all_hard_samples: Dict[str, Dict[int, List[int]]],
@@ -12,12 +17,6 @@ def plot_hard_sample_pairwise_overlap(all_hard_samples: Dict[str, Dict[int, List
     """
     Creates a single plot with four lines showing pairwise and triple overlap of hard sample indices.
     Y-axis shows percentage overlap relative to threshold size.
-
-    Args:
-        all_hard_samples: dict mapping estimator -> {threshold_pct: list_of_indices}
-        thresholds: list of percentile thresholds (e.g., [10,20,30,40])
-        dataset_name: for title and filename
-        save_path: directory to save figure
     """
     estimators = list(all_hard_samples.keys())
 
@@ -81,14 +80,6 @@ def plot_class_hard_samples_simple(class_cardinalities: List[int],
     """
     Creates a simple line plot showing number of hard samples per class for each threshold.
     One figure per estimator.
-
-    Args:
-        class_cardinalities: list of ints, total samples per class (for reference)
-        hard_samples_by_class_for_estimator: dict mapping estimator -> {threshold_pct: per_class_indices}
-        estimator_name: which estimator to plot (e.g., 'AUM', 'DataIQ', 'Forgetting')
-        dataset_name: for title and filename
-        save_path: directory to save figure
-        thresholds: list of percentile thresholds
     """
     num_classes = len(class_cardinalities)
     classes = list(range(num_classes))
@@ -133,12 +124,6 @@ def plot_class_cardinalities_and_hardness(class_cardinalities: List[int],
     Creates a figure with three subplots (one per hardness estimator).
     Each subplot shows class cardinalities (bars) and per‑class hardness mean ± std (error bars).
     A single shared legend is placed below the figure.
-
-    Args:
-        class_cardinalities: list of ints, length = number of classes.
-        all_hardness_by_class: dict mapping estimator name -> list of lists of hardness values per class.
-        dataset_name: used for title and filename.
-        save_path: directory to save the figure.
     """
     estimators = list(all_hardness_by_class.keys())
     num_estimators = len(estimators)
@@ -286,3 +271,95 @@ def plot_consecutive_stability(all_hard_samples, thresholds, model_counts, estim
     plt.savefig(save_file, dpi=150, bbox_inches='tight')
     plt.close(fig)
     print(f"Saved consecutive stability plot to {save_file}")
+
+
+def plot_hardness_with_std(dataset_name, split='test', num_models=None, shared_sorting=True):
+    """
+    Create one figure per estimator showing mean ± std over models.
+    Each figure has subplots for real and all synthetic masks.
+    """
+    base_dir = os.path.join(ROOT, f'Results/{dataset_name}')
+    output_dir = os.path.join(ROOT, f'Figures/{dataset_name}')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # ---- Real data ----
+    real_file = os.path.join(base_dir, f'{split}_hardness_estimates_real.pkl')
+    if not os.path.exists(real_file):
+        raise FileNotFoundError(f"Real estimates file not found: {real_file}")
+    real_estimates = load_results(real_file)
+    total_models = len(real_estimates)
+    num_models = total_models if num_models is None else min(num_models, total_models)
+
+    # ---- Synthetic data ----
+    syn_pattern = os.path.join(base_dir, f'{split}_hardness_estimates_syn*.pkl')
+    syn_files = sorted(glob.glob(syn_pattern))
+    if not syn_files:
+        print(f"No synthetic files found for {split}")
+        return
+
+    syn_estimates_list, masks = [], []
+    for syn_path in syn_files:
+        mask_str = syn_path.split('_syn')[-1].replace('.pkl', '')
+        masks.append(float(mask_str))
+        syn_estimates_list.append(load_results(syn_path))
+
+    for estimator in ['AUM', 'DataIQ', 'Forgetting']:
+        # Compute stats
+        real_mean, real_std = compute_mean_std(real_estimates, num_models, estimator)
+        syn_data = []
+        for estimates in syn_estimates_list:
+            mean, std = compute_mean_std(estimates, num_models, estimator)
+            syn_data.append((mean, std))
+
+        # Create subplots
+        conditions = [('Real', real_mean, real_std)] + \
+                     [(f'Synthetic ({int(m * 100)}% masking)', mean, std) for m, (mean, std) in zip(masks, syn_data)]
+        n_plots = len(conditions)
+
+        # Determine grid layout (max 3 columns)
+        n_cols = min(3, n_plots)
+        n_rows = (n_plots + n_cols - 1) // n_cols
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+        axes = axes.flatten()
+
+        # Sorting logic
+
+        # Find global y-axis limits across all conditions for this estimator
+        global_ymin, global_ymax = float('inf'), float('-inf')
+        for _, mean, std in conditions:
+            y_min = np.min(mean - std)
+            y_max = np.max(mean + std)
+            global_ymin = min(global_ymin, y_min)
+            global_ymax = max(global_ymax, y_max)
+        y_padding = (global_ymax - global_ymin) * 0.05
+        global_ymin -= y_padding
+        global_ymax += y_padding
+
+        # ----- Plot each subplot -----
+        for i, (ax, (title, mean, std)) in enumerate(zip(axes, conditions)):
+            sorted_idx = np.argsort(conditions[0][1]) if shared_sorting else np.argsort(conditions[i][1])
+            mean_sorted = mean[sorted_idx]
+            std_sorted = std[sorted_idx]
+
+            x = np.arange(len(mean_sorted))
+            ax.plot(x, mean_sorted, linewidth=1.5, color='black')
+            ax.fill_between(x, mean_sorted - std_sorted, mean_sorted + std_sorted, alpha=0.3, color='gray')
+            ax.set_title(title, fontsize=10)
+            ax.set_xlabel('Sample index (sorted by mean hardness)', fontsize=9)
+            ax.set_ylabel('Hardness estimate', fontsize=9)
+            ax.set_ylim(global_ymin, global_ymax)
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(labelsize=8)
+
+        # Hide unused subplots
+        for ax in axes[n_plots:]:
+            ax.set_visible(False)
+
+        plt.suptitle(f'{dataset_name} - {split} split\n{estimator} (mean ± std over {num_models} models)',
+                     fontsize=14)
+        plt.tight_layout()
+        sorting_suffix = "shared_sort" if shared_sorting else "individual_sort"
+        save_path = os.path.join(output_dir, f'{split}_{estimator}_hardness_with_std_{sorting_suffix}.png')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"  Saved: {save_path}")
+        plt.close()

@@ -56,6 +56,9 @@ def main(dataset_name: str):
             plot_consecutive_stability(all_hard_samples, thresholds, model_counts,
                                        est, dataset_name, figure_save_path)
 
+        plot_hardness_with_std(dataset_name)
+        plot_hardness_with_std(dataset_name, shared_sorting=False)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
