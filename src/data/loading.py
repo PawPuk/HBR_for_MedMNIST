@@ -35,7 +35,7 @@ def get_dataloader(dataset: IndexedDataset, batch_size: int) -> DataLoader:
     return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1, worker_init_fn=worker_init_fn)
 
 
-def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking_percentage: Optional[float] = None):
+def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking_percentage: Optional[float] = 0.00):
     """Load dataset from MedMNIST or synthetic JPG folders.
 
     :param dataset_name: Name of the dataset (e.g., 'pathmnist').

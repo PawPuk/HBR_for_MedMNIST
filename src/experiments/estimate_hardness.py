@@ -8,7 +8,7 @@ from src.data.loading import load_dataset
 from src.training.train_ensembles import ModelTrainer
 
 
-def main(dataset_name: str, split: str, synthetic: bool, masking_percentage: float = None):
+def main(dataset_name: str, split: str, synthetic: bool, masking_percentage: float):
     dataloader, dataset = load_dataset(dataset_name, split, synthetic=synthetic, masking_percentage=masking_percentage)
 
     dataset_size = len(dataset)
@@ -29,7 +29,7 @@ if __name__ == '__main__':
                         help='Split on which hardness will be estimated.')
     parser.add_argument('--synthetic', action='store_true', default=False,
                         help='Use synthetic JPG dataset instead of original MedMNIST.')
-    parser.add_argument('--masking_percentage', type=float, choices=[0.25, 0.50, 0.75, 1.00],
+    parser.add_argument('--masking_percentage', type=float, choices=[0.25, 0.50, 0.75, 1.00], default=0.00,
                         help='Masking percentage for synthetic data (required if --synthetic).')
 
     args = parser.parse_args()
