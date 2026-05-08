@@ -363,3 +363,128 @@ def plot_hardness_with_std(dataset_name, split='test', num_models=None, shared_s
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
         print(f"  Saved: {save_path}")
         plt.close()
+
+
+def moving_average(data, window):
+    """Moving average with edge padding."""
+    if window <= 1:
+        return data
+    kernel = np.ones(window) / window
+    smoothed = np.convolve(data, kernel, mode='valid')
+    pad_before = (window - 1) // 2
+    pad_after = window - 1 - pad_before
+    return np.pad(smoothed, (pad_before, pad_after), mode='edge')
+
+
+def plot_mean_hardness_difference(dataset_name, split='test', num_models=None,
+                                  smooth_window=None):
+    """
+    Compare real vs synthetic mean hardness using two complementary orderings.
+
+    Shared sorting:    sort by real mean → plot (syn - real) in that order.
+                       If smooth_window is provided, applies moving average.
+    Individual sorting: sort real and synthetic means independently,
+                       plot (sorted_syn - sorted_real) → quantile difference (no smoothing).
+
+    Args:
+        dataset_name: str
+        split: 'training', 'validation', 'test'
+        num_models: int or None (use all)
+        smooth_window: int or None. If provided, smooths the shared-sorting curves.
+    """
+    base_dir = os.path.join(ROOT, f'Results/{dataset_name}')
+    output_dir = os.path.join(ROOT, f'Figures/{dataset_name}')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Load real data
+    real_file = os.path.join(base_dir, f'{split}_hardness_estimates_real.pkl')
+    if not os.path.exists(real_file):
+        raise FileNotFoundError(f"Real estimates not found: {real_file}")
+    real_estimates = load_results(real_file)
+    total_models = len(real_estimates)
+    num_models = total_models if num_models is None else min(num_models, total_models)
+
+    # Gather synthetic files
+    syn_pattern = os.path.join(base_dir, f'{split}_hardness_estimates_syn*.pkl')
+    syn_files = sorted(glob.glob(syn_pattern))
+
+    syn_estimates_list, masks = [], []
+    for syn_path in syn_files:
+        mask_str = syn_path.split('_syn')[-1].replace('.pkl', '')
+        masks.append(float(mask_str))
+        syn_estimates_list.append(load_results(syn_path))
+
+    colors = plt.cm.viridis(np.linspace(0, 1, len(masks))) if len(masks) > 1 else ['blue']
+
+    for estimator in ['AUM', 'DataIQ', 'Forgetting']:
+        print(f"Processing {estimator}...")
+        real_mean, _ = compute_mean_std(real_estimates, num_models, estimator)
+
+        # ----- 1. Shared sorting (by real mean) -----
+        sorted_idx = np.argsort(real_mean)
+        real_sorted = real_mean[sorted_idx]
+
+        shared_diffs = []
+        for estimates in syn_estimates_list:
+            syn_mean, _ = compute_mean_std(estimates, num_models, estimator)
+            syn_sorted = syn_mean[sorted_idx]
+            shared_diffs.append(syn_sorted - real_sorted)
+
+        # Plot shared sorting (raw)
+        fig1, ax1 = plt.subplots(figsize=(10, 6))
+        for mask, diff, color in zip(masks, shared_diffs, colors):
+            ax1.plot(diff, linewidth=1, alpha=0.7, color=color,
+                     label=f'{int(mask*100)}% masking')
+        ax1.axhline(0, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
+        ax1.set_xlabel('Sample index (sorted by real mean hardness)')
+        ax1.set_ylabel('Difference (synthetic – real)')
+        ax1.set_title(f'{dataset_name} – {estimator} (shared sorting)')
+        ax1.legend(loc='best')
+        ax1.grid(True, alpha=0.3)
+        save_shared_raw = os.path.join(output_dir, f'{split}_{estimator}_diff_shared_raw.png')
+        plt.savefig(save_shared_raw, dpi=150, bbox_inches='tight')
+        plt.close(fig1)
+        print(f"  Saved shared sorting (raw): {save_shared_raw}")
+
+        # Plot shared sorting (smoothed, if requested)
+        if smooth_window and smooth_window > 1:
+            fig1s, ax1s = plt.subplots(figsize=(10, 6))
+            for mask, diff, color in zip(masks, shared_diffs, colors):
+                diff_smooth = moving_average(diff, smooth_window)
+                ax1s.plot(diff_smooth, linewidth=1.5, color=color,
+                          label=f'{int(mask*100)}% masking (win={smooth_window})')
+            ax1s.axhline(0, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
+            ax1s.set_xlabel('Sample index (sorted by real mean hardness)')
+            ax1s.set_ylabel('Difference (synthetic – real)')
+            ax1s.set_title(f'{dataset_name} – {estimator} (shared sorting, smoothed)')
+            ax1s.legend(loc='best')
+            ax1s.grid(True, alpha=0.3)
+            save_shared_smooth = os.path.join(output_dir,
+                                              f'{split}_{estimator}_diff_shared_smoothed_w{smooth_window}.png')
+            plt.savefig(save_shared_smooth, dpi=150, bbox_inches='tight')
+            plt.close(fig1s)
+            print(f"  Saved shared sorting (smoothed): {save_shared_smooth}")
+
+        # ----- 2. Individual sorting (no smoothing) -----
+        real_sorted_indiv = np.sort(real_mean)
+        indiv_diffs = []
+        for estimates in syn_estimates_list:
+            syn_mean, _ = compute_mean_std(estimates, num_models, estimator)
+            syn_sorted_indiv = np.sort(syn_mean)
+            indiv_diffs.append(syn_sorted_indiv - real_sorted_indiv)
+
+        # Plot individual sorting
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        for mask, diff, color in zip(masks, indiv_diffs, colors):
+            ax2.plot(diff, linewidth=4, alpha=0.7, color=color,
+                     label=f'{int(mask*100)}% masking')
+        ax2.axhline(0, color='red', linestyle='--', linewidth=1.5, alpha=0.7)
+        ax2.set_xlabel('Quantile index (both distributions sorted independently)')
+        ax2.set_ylabel('Difference (synthetic – real)')
+        ax2.set_title(f'{dataset_name} – {estimator} (individual sorting)')
+        ax2.legend(loc='best')
+        ax2.grid(True, alpha=0.3)
+        save2 = os.path.join(output_dir, f'{split}_{estimator}_diff_individual.png')
+        plt.savefig(save2, dpi=150, bbox_inches='tight')
+        plt.close(fig2)
+        print(f"  Saved individual sorting: {save2}")

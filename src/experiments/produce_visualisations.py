@@ -1,7 +1,6 @@
 import argparse
-import glob
 import pickle
-from src.config.config import ROOT
+
 from src.visualisations.figures import *
 
 
@@ -58,6 +57,7 @@ def main(dataset_name: str):
 
         plot_hardness_with_std(dataset_name)
         plot_hardness_with_std(dataset_name, shared_sorting=False)
+        plot_mean_hardness_difference(dataset_name, smooth_window=250)
 
 
 if __name__ == '__main__':
