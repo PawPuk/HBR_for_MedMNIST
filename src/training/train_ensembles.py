@@ -1,6 +1,7 @@
 """Core module that allows for training ensembles of models as well as estimating hardness."""
 
-from typing import cast, Dict, Sized, Tuple, Union
+import os
+from typing import cast, Dict, Sized, Tuple
 
 import numpy as np
 import torch
@@ -19,7 +20,8 @@ from src.utils.structures import get_latest_model_index
 
 class ModelTrainer:
     """Allows training ensembles of models as well as estimating hardness."""
-    def __init__(self, dataset_size: int, dataloader: DataLoader, dataset_name: str, split: str, run_suffix: str = ""):
+    def __init__(self, dataset_size: int, dataloader: DataLoader, dataset_name: str, split: str, save_models: bool,
+                 run_suffix: str = ""):
         """
         Initialize the ModelTrainer class with configuration specific to the dataset.
 
@@ -27,18 +29,23 @@ class ModelTrainer:
         :param dataloader: DataLoader wrapping the dataset on which hardness will be estimated.
         :param dataset_name: The name of the dataset. Used for saving
         :param split: Name of the split on which hardness estimation will be performed
+        :param save_models: Indicates if the models trained during hardness estimation are to be saved for later use.
         :param run_suffix: Optional suffix added to save path (e.g., masking percentage) to avoid overwrites.
         """
         self.dataset_size = dataset_size
         self.split = split
         self.loader = dataloader
         self.dataset_name = dataset_name
+        self.save_models = save_models
         self.run_suffix = run_suffix
 
         self.config = get_config(self.dataset_name)
 
         self.num_epochs = self.config['num_epochs']
         self.num_models_to_train = self.config['num_models']
+
+        self.save_dir = os.path.join(self.config['save_dir'], dataset_name)
+        os.makedirs(self.save_dir, exist_ok=True)
 
     def train_model(self, current_model_index: int, hardness_estimates: Dict[Tuple[int, int], Dict]):
         """Train a single model."""
@@ -77,6 +84,11 @@ class ModelTrainer:
                 estimate_instance_hardness(indices, inputs, outputs, labels, predicted, hardness_estimates, epoch,
                                            remembering, current_model_index)
             scheduler.step()
+
+        if self.save_models:
+            final_save_path = os.path.join(self.save_dir, f'model_{current_model_index}'
+                                                          f'_epoch_{self.config["num_epochs"]}.pth')
+            torch.save(model.state_dict(), final_save_path)
 
     def train_ensemble(self):
         """Train an ensemble of models."""

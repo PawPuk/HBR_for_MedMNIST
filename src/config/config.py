@@ -25,6 +25,7 @@ Runtime considerations
 Larger configurations increase statistical robustness but significantly increase training time.
 """
 
+import os
 from typing import Any, Dict
 
 import medmnist
@@ -44,6 +45,8 @@ _base_config = {
 
     # Experimental robustness parameters
     'num_models': 10,    # number of models trained on each dataset variant
+
+    'save_dir': os.path.join(ROOT, 'Models/')
 }
 
 _dataset_specific_config = {
