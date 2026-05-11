@@ -39,10 +39,9 @@ def estimate_instance_hardness_via_learning_dynamics(
             remembering[i] = False
 
 
-def compute_margin_for_loader(model, dataloader, device):
-    """Estimate hardness through margins."""
-    model.eval()
-    margins = []
+def accumulate_margins_with_labels(model, dataloader, device):
+    """Return (margins_array, labels_array) for all samples."""
+    margins, labels_list = [], []
     with torch.no_grad():
         for images, labels, _ in dataloader:
             images, labels = images.to(device), labels.to(device)
@@ -54,5 +53,6 @@ def compute_margin_for_loader(model, dataloader, device):
             probs[range(len(labels)), labels] = 0.0
             max_other_probs, _ = probs.max(dim=1)      # (batch,)
             margins_batch = true_probs - max_other_probs   # (batch,)
-            margins.extend(margins_batch.cpu().numpy())
-    return np.array(margins)
+            margins.append(margins_batch.cpu().numpy())
+            labels_list.append(labels.cpu().numpy())
+    return np.concatenate(margins), np.concatenate(labels_list)
