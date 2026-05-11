@@ -8,7 +8,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 
-from src.config.config import get_config
+from src.config.config import get_config, ROOT
 from src.data.datasets import IndexedDataset, LocalDataset
 
 
@@ -48,7 +48,7 @@ def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking
     config = get_config(dataset_name)
     transform = get_transform(config)
     as_rgb = False
-    root = os.path.join('Data', f'{["real", "synthetic"][synthetic]}_{dataset_name}')
+    root = os.path.join(ROOT, 'Data', f'{["real", "synthetic"][synthetic]}_{dataset_name}')
 
     dataset = LocalDataset(root, masking_percentage, split, transform=transform, as_rgb=as_rgb)
     indexed_dataset = IndexedDataset(dataset)

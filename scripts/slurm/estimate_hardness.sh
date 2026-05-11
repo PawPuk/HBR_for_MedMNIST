@@ -21,4 +21,5 @@ shift 2
 python3 -m src.experiments.estimate_hardness \
     --dataset_name "$dataset_name" \
     --split "$split_name" \
+    --save_models
     "$@"
