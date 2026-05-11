@@ -212,7 +212,7 @@ def main(dataset_name: str, masking_percentages=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='kNN identity check for synthetic MedMNIST data (with visualisation)')
-    parser.add_argument('--dataset', required=True, help='Dataset name, e.g. bloodmnist')
+    parser.add_argument('--dataset_name', required=True, help='Dataset name, e.g. bloodmnist')
     parser.add_argument('--masks', type=float, nargs='+', help='Masking percentages (e.g., 0.25 0.5 0.75 1.0)')
     args = parser.parse_args()
     main(args.dataset, args.masks)

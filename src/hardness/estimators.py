@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple, Union
 
+import numpy as np
 import torch
 
 
@@ -36,3 +37,22 @@ def estimate_instance_hardness_via_learning_dynamics(
         elif predicted_label != correct_label and remembering[i]:
             hardness_estimates[current_model_index]['Forgetting'][i] += 1
             remembering[i] = False
+
+
+def compute_margin_for_loader(model, dataloader, device):
+    """Estimate hardness through margins."""
+    model.eval()
+    margins = []
+    with torch.no_grad():
+        for images, labels, _ in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            logits = model(images)                     # (batch, num_classes)
+            probs = torch.nn.functional.softmax(logits, dim=1)           # (batch, num_classes)
+            # Get probability of true class
+            true_probs = probs[range(len(labels)), labels]   # (batch,)
+            # Mask out true class to find max other probability
+            probs[range(len(labels)), labels] = 0.0
+            max_other_probs, _ = probs.max(dim=1)      # (batch,)
+            margins_batch = true_probs - max_other_probs   # (batch,)
+            margins.extend(margins_batch.cpu().numpy())
+    return np.array(margins)
