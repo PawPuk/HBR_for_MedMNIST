@@ -11,7 +11,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from src.config.config import DEVICE, get_config
-from src.hardness.estimators import estimate_instance_hardness
+from src.hardness.estimators import estimate_instance_hardness_via_learning_dynamics
 from src.models.neural_networks import ResNet18
 from src.utils.io import save_results
 from src.utils.reproducibility import compute_current_seed, set_reproducibility
@@ -81,8 +81,10 @@ class ModelTrainer:
                 optimizer.step()
 
                 _, predicted = torch.max(outputs.data, 1)
-                estimate_instance_hardness(indices, inputs, outputs, labels, predicted, hardness_estimates, epoch,
-                                           remembering, current_model_index)
+                estimate_instance_hardness_via_learning_dynamics(
+                    indices, inputs, outputs, labels, predicted, hardness_estimates, epoch, remembering,
+                    current_model_index
+                )
             scheduler.step()
 
         if self.save_models:

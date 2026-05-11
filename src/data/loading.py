@@ -30,18 +30,20 @@ def worker_init_fn(worker_id):
     random.seed(42 + worker_id)
 
 
-def get_dataloader(dataset: IndexedDataset, batch_size: int) -> DataLoader:
+def get_dataloader(dataset: IndexedDataset, batch_size: int, shuffle: bool) -> DataLoader:
     """Create a DataLoader with deterministic worker initialization."""
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1, worker_init_fn=worker_init_fn)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=1, worker_init_fn=worker_init_fn)
 
 
-def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking_percentage: Optional[float] = 0.00):
+def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking_percentage: Optional[float] = 2.00,
+                 shuffle: bool = True):
     """Load dataset from MedMNIST or synthetic JPG folders.
 
     :param dataset_name: Name of the dataset (e.g., 'pathmnist').
     :param split: Name of the split ('train', 'val' or 'test').
     :param synthetic: Load from synthetic JPG images.
     :param masking_percentage: Required if synthetic=True, one of {0.25, 0.50, 0.75, 1.00}.
+    :param shuffle: If true then DataLoader will shuffle the data.
     """
     config = get_config(dataset_name)
     transform = get_transform(config)
@@ -50,6 +52,6 @@ def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking
 
     dataset = LocalDataset(root, masking_percentage, split, transform=transform, as_rgb=as_rgb)
     indexed_dataset = IndexedDataset(dataset)
-    dataloader = get_dataloader(indexed_dataset, config['batch_size'])
+    dataloader = get_dataloader(indexed_dataset, config['batch_size'], shuffle)
 
     return dataloader, indexed_dataset

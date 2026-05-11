@@ -3,7 +3,7 @@ from typing import Dict, List, Tuple, Union
 import torch
 
 
-def estimate_instance_hardness(
+def estimate_instance_hardness_via_learning_dynamics(
         batch_indices: torch.Tensor,
         inputs: torch.Tensor,
         outputs: torch.Tensor,

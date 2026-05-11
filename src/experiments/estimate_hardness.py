@@ -31,7 +31,7 @@ if __name__ == '__main__':
                         help='Use synthetic dataset instead of original MedMNIST.')
     parser.add_argument('--masking_percentage', type=float, choices=[0.25, 0.50, 0.75, 1.00], default=0.00,
                         help='Masking percentage for synthetic data (required if --synthetic).')
-    parser.add_argument('--save_models', action='store_trye', default=False,
+    parser.add_argument('--save_models', action='store_true', default=False,
                         help='Save the models used to estimate hardness.')
 
     args = parser.parse_args()
