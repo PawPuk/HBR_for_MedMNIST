@@ -11,7 +11,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from src.config.config import DEVICE, get_config
-from src.hardness.estimators import estimate_instance_hardness_via_learning_dynamics
+from src.hardness.estimators import update_AUM
 from src.models.neural_networks import ResNet18
 from src.utils.io import save_results
 from src.utils.reproducibility import compute_current_seed, set_reproducibility
@@ -30,7 +30,8 @@ class ModelTrainer:
         :param dataset_name: The name of the dataset. Used for saving
         :param split: Name of the split on which hardness estimation will be performed
         :param save_models: Indicates if the models trained during hardness estimation are to be saved for later use.
-        :param run_suffix: Optional suffix added to save path (e.g., masking percentage) to avoid overwrites.
+        :param run_suffix: Optional suffix added to save path (e.g., differences in masking_percentage or data_type) to
+        avoid overwriting hardness estimates.
         """
         self.dataset_size = dataset_size
         self.split = split
@@ -61,13 +62,8 @@ class ModelTrainer:
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.config['milestones'],
                                                    gamma=self.config['gamma'])
 
-        for estimator in ['AUM', 'DataIQ']:
-            # hardness_estimates[dataset_model_id][estimator][epoch_index][sample_index]: float
-            hardness_estimates[current_model_index][estimator] = [[0.0 for _ in range(self.num_epochs)]
-                                                                  for _ in range(self.dataset_size)]
-        # hardness_estimates[dataset_model_id]['Forgetting'][sample_index]: int
-        hardness_estimates[current_model_index]['Forgetting'] = [0 for _ in range(self.dataset_size)]
-        remembering = [False for _ in range(self.dataset_size)]  # Required to computing Forgetting
+        hardness_estimates[current_model_index] = [[0.0 for _ in range(self.num_epochs)]
+                                                   for _ in range(self.dataset_size)]
 
         for epoch in tqdm(range(self.config['num_epochs']), desc='Iterating through epochs.'):
             model.train()
@@ -80,16 +76,11 @@ class ModelTrainer:
                 loss.backward()
                 optimizer.step()
 
-                _, predicted = torch.max(outputs.data, 1)
-                estimate_instance_hardness_via_learning_dynamics(
-                    indices, inputs, outputs, labels, predicted, hardness_estimates, epoch, remembering,
-                    current_model_index
-                )
+                update_AUM(indices, outputs, labels, hardness_estimates, epoch, current_model_index)
             scheduler.step()
 
         if self.save_models:
-            final_save_path = os.path.join(self.save_dir, f'model_{current_model_index}'
-                                                          f'_epoch_{self.config["num_epochs"]}.pth')
+            final_save_path = os.path.join(self.save_dir, f'model_{current_model_index}_{self.run_suffix}_data.pth')
             torch.save(model.state_dict(), final_save_path)
 
     def train_ensemble(self):
@@ -105,8 +96,5 @@ class ModelTrainer:
         for model_id in tqdm(range(latest_model_index + 1, self.num_models_to_train)):
             hardness_estimates = {model_id: {}}
             self.train_model(model_id, hardness_estimates)
-            for estimator in ['AUM', 'DataIQ']:
-                # Average hardness estimates (the ones that used learning dynamics) over all epochs.
-                hardness_estimates[model_id][estimator] = np.mean(
-                    hardness_estimates[model_id][estimator], axis=1)
+            hardness_estimates[model_id] = np.mean(hardness_estimates[model_id], axis=1)
             save_results(hardness_estimates, model_id, self.dataset_name, self.split, self.run_suffix)

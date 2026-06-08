@@ -8,11 +8,11 @@ from src.data.loading import load_dataset
 from src.training.train_ensembles import ModelTrainer
 
 
-def main(dataset_name: str, split: str, synthetic: bool, masking_percentage: float, save_models: bool):
-    dataloader, dataset = load_dataset(dataset_name, split, synthetic=synthetic, masking_percentage=masking_percentage)
+def main(dataset_name: str, split: str, data_type: bool, masking_percentage: float, save_models: bool):
+    dataloader, dataset = load_dataset(dataset_name, split, data_type=data_type, masking_percentage=masking_percentage)
 
     dataset_size = len(dataset)
-    suffix = f"syn{masking_percentage}" if synthetic else "real"
+    suffix = f"{data_type}{masking_percentage}" if data_type in ['syn', 'both'] else "real"
 
     trainer = ModelTrainer(dataset_size, dataloader, dataset_name, split, save_models, run_suffix=suffix)
     trainer.train_ensemble()
@@ -26,11 +26,11 @@ if __name__ == '__main__':
                                  'breastmnist', 'retinamnist'],
                         help='MedMNIST dataset name.')
     parser.add_argument('--split', type=str, default='test', choices=['train', 'val', 'test'],
-                        help='Split on which hardness will be estimated.')
-    parser.add_argument('--synthetic', action='store_true', default=False,
-                        help='Use synthetic dataset instead of original MedMNIST.')
+                        help='Split on which training will be performed and hardness estimated.')
+    parser.add_argument('--data_type', choices=['real', 'syn', 'both'],
+                        help='The type of data that will be used for training and hardness estimation (type 1).')
     parser.add_argument('--masking_percentage', type=float, choices=[0.25, 0.50, 0.75, 1.00], default=0.00,
-                        help='Masking percentage for synthetic data (required if --synthetic).')
+                        help='Masking percentage for synthetic data (required if --data_type syn/both).')
     parser.add_argument('--save_models', action='store_true', default=False,
                         help='Save the models used to estimate hardness.')
 
@@ -38,4 +38,4 @@ if __name__ == '__main__':
     if args.synthetic and args.masking_percentage is None:
         parser.error("--masking_percentage is required when --synthetic is set.")
 
-    main(args.dataset_name, args.split, args.synthetic, args.masking_percentage, args.save_models)
+    main(args.dataset_name, args.split, args.data_type, args.masking_percentage, args.save_models)

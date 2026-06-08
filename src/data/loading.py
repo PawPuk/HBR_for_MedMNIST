@@ -5,7 +5,7 @@ import random
 from typing import Dict, Tuple, Union, Optional
 
 import numpy as np
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader
 import torchvision.transforms as transforms
 
 from src.config.config import get_config, ROOT
@@ -35,22 +35,38 @@ def get_dataloader(dataset: IndexedDataset, batch_size: int, shuffle: bool) -> D
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=1, worker_init_fn=worker_init_fn)
 
 
-def load_dataset(dataset_name: str, split: str, synthetic: bool = False, masking_percentage: Optional[float] = 2.00,
+def load_dataset(dataset_name: str, split: str, data_type: str, masking_percentage: Optional[float] = 2.00,
                  shuffle: bool = True):
     """Load dataset from MedMNIST or synthetic JPG folders.
 
     :param dataset_name: Name of the dataset (e.g., 'pathmnist').
     :param split: Name of the split ('train', 'val' or 'test').
-    :param synthetic: Load from synthetic JPG images.
+    :param data_type: The type of data to load
     :param masking_percentage: Required if synthetic=True, one of {0.25, 0.50, 0.75, 1.00}.
     :param shuffle: If true then DataLoader will shuffle the data.
     """
     config = get_config(dataset_name)
     transform = get_transform(config)
     as_rgb = False
-    root = os.path.join(ROOT, 'Data', f'{["real", "synthetic"][synthetic]}_{dataset_name}')
 
-    dataset = LocalDataset(root, masking_percentage, split, transform=transform, as_rgb=as_rgb)
+    root_map = {
+        'real': [f'real_{dataset_name}'],
+        'syn': [f'synthetic_{dataset_name}'],
+        'both': [f'real_{dataset_name}', f'synthetic_{dataset_name}']
+    }
+
+    datasets = [
+        LocalDataset(
+            os.path.join(ROOT, 'Data', root),
+            masking_percentage,
+            split,
+            transform=transform,
+            as_rgb=as_rgb
+        )
+        for root in root_map[data_type]
+    ]
+
+    dataset = datasets[0] if len(datasets) == 1 else ConcatDataset(datasets)
     indexed_dataset = IndexedDataset(dataset)
     dataloader = get_dataloader(indexed_dataset, config['batch_size'], shuffle)
 
