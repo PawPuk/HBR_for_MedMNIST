@@ -18,8 +18,9 @@ split_name=$2
 shift 2
 
 # Run the estimation script
-python3 -m src.experiments.estimate_hardness \
+python3 -m src.experiments.estimate_hardness_via_learning_dynamics \
     --dataset_name "$dataset_name" \
     --split "$split_name" \
+    --data_type "real" \
     --save_models
     "$@"

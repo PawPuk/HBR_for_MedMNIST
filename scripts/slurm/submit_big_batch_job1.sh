@@ -31,12 +31,12 @@ code_map["organsmnist"]="osm"
 code_map["breastmnist"]="br"
 code_map["retinamnist"]="re"
 
-# Split name (only test split is used)
-split_name="test"
-split_code="tst"
+# Split name (only val split is used)
+split_name="val"
+split_code="val"
 
 echo "========================================"
-echo "Submitting real data jobs (test split only)"
+echo "Submitting real data jobs (val split only)"
 echo "========================================"
 
 for dataset_name in "${dataset_names[@]}"; do

@@ -80,7 +80,10 @@ class ModelTrainer:
             scheduler.step()
 
         if self.save_models:
-            final_save_path = os.path.join(self.save_dir, f'model_{current_model_index}_{self.run_suffix}_data.pth')
+            final_save_path = os.path.join(
+                self.save_dir,
+                f'model_{current_model_index}_{self.run_suffix}_{self.split}_data.pth'
+            )
             torch.save(model.state_dict(), final_save_path)
 
     def train_ensemble(self):

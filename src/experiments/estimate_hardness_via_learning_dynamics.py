@@ -35,7 +35,7 @@ if __name__ == '__main__':
                         help='Save the models used to estimate hardness.')
 
     args = parser.parse_args()
-    if args.synthetic and args.masking_percentage is None:
-        parser.error("--masking_percentage is required when --synthetic is set.")
+    if args.data_type in ['syn', 'both'] and args.masking_percentage is None:
+        parser.error("--masking_percentage is required when --data_type is set to 'syn' or 'both'.")
 
     main(args.dataset_name, args.split, args.data_type, args.masking_percentage, args.save_models)
